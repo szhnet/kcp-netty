@@ -71,12 +71,12 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
 
     @Override
     public boolean isOpen() {
-        return ukcp.isActive();
+        return udpChannel.isOpen();
     }
 
     @Override
     public boolean isActive() {
-        return isOpen();
+        return udpChannel.isActive();
     }
 
     @Override
@@ -159,7 +159,12 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
         }
 
         if (sent) {
-            kcpTsUpdate(-1); // update kcp
+            // update kcp
+            if (ukcp.isFastFlush()) {
+                updateKcp();
+            } else {
+                kcpTsUpdate(-1);
+            }
         }
     }
 
@@ -243,30 +248,61 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
     @Override
     public void run() {
         long current = System.currentTimeMillis();
-        long nextTsUpadte = -1;
-        try {
-            long tsUp = kcpTsUpdate();
-            if (current >= tsUp) {
-                nextTsUpadte = kcpUpdate(current);
 
-                if (kcpState() == -1) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("getState=-1 after update(). channel={}", this);
-                    }
-                    Unsafe unsafe = unsafe();
-                    unsafe.close(unsafe.voidPromise());
-                    nextTsUpadte = -1;
-                }
-            } else {
-                nextTsUpadte = tsUp;
+        long nextTsUpadte = -1;
+        long tsUp = kcpTsUpdate();
+        Throwable exception = null;
+        if (current >= tsUp) {
+            try {
+                nextTsUpadte = kcpUpdate(current);
+            } catch (Throwable t) {
+                exception = t;
             }
-        } catch (Throwable t) {
-            Utils.fireExceptionAndClose(this, t, true);
+
+            if (kcpState() == -1 && exception == null) {
+                if (log.isDebugEnabled()) {
+                    log.debug("getState=-1 after update(). channel={}", this);
+                }
+                exception = new KcpException("State=-1 after update()");
+            }
+        } else {
+            nextTsUpadte = tsUp;
+        }
+
+        boolean close = false;
+        if (exception != null) {
+            close = true;
+            nextTsUpadte = -1;
         }
 
         tsUpdate = nextTsUpadte;
         if (tsUpdate != -1) {
             scheduleUpdate(tsUpdate, current);
+        }
+
+        if (close) {
+            Utils.fireExceptionAndClose(this, exception, true);
+        }
+    }
+
+    private void updateKcp() {
+        long current = System.currentTimeMillis();
+        Throwable exception = null;
+        try {
+            kcpUpdate(current);
+        } catch (Throwable t) {
+            exception = t;
+        }
+
+        if (kcpState() == -1 && exception == null) {
+            if (log.isDebugEnabled()) {
+                log.debug("getState=-1 after update(). channel={}", this);
+            }
+            exception = new KcpException("State=-1 after update()");
+        }
+
+        if (exception != null) {
+            Utils.fireExceptionAndClose(this, exception, true);
         }
     }
 

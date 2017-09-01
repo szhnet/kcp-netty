@@ -3,6 +3,8 @@ package io.jpower.kcp.netty;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.Channel;
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
@@ -12,7 +14,11 @@ import java.util.List;
  */
 public class Ukcp {
 
+    private static final InternalLogger log = InternalLoggerFactory.getInstance(Ukcp.class);
+
     private Kcp kcp;
+
+    private boolean fastFlush = true;
 
     private long tsUpdate = -1;
 
@@ -158,24 +164,53 @@ public class Ukcp {
         return this;
     }
 
-    public void wndSize(int sndWnd, int rcvWnd) {
+    public Ukcp wndSize(int sndWnd, int rcvWnd) {
         kcp.wndsize(sndWnd, rcvWnd);
-    }
-
-    public int getState() {
-        return kcp.getState();
+        return this;
     }
 
     public int waitSnd() {
         return kcp.waitSnd();
     }
 
+    public int getRcvWnd() {
+        return kcp.getRcvWnd();
+    }
+
+    public Ukcp setRcvWnd(int rcvWnd) {
+        kcp.setRcvWnd(rcvWnd);
+        return this;
+    }
+
+    public int getSndWnd() {
+        return kcp.getSndWnd();
+    }
+
+    public Ukcp setSndWnd(int sndWnd) {
+        kcp.setSndWnd(sndWnd);
+        return this;
+    }
+
+    public boolean isFastFlush() {
+        return fastFlush;
+    }
+
+    public Ukcp setFastFlush(boolean fastFlush) {
+        this.fastFlush = fastFlush;
+        return this;
+    }
+
     public long getTsUpdate() {
         return tsUpdate;
     }
 
-    public void setTsUpdate(long tsUpdate) {
+    public Ukcp setTsUpdate(long tsUpdate) {
         this.tsUpdate = tsUpdate;
+        return this;
+    }
+
+    public int getState() {
+        return kcp.getState();
     }
 
     public boolean isActive() {
@@ -199,8 +234,9 @@ public class Ukcp {
         return (T) kcp.getUser();
     }
 
-    public void channel(Channel channel) {
+    public Ukcp channel(Channel channel) {
         kcp.setUser(channel);
+        return this;
     }
 
     @Override

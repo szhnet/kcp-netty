@@ -18,7 +18,7 @@ public class DefaultUkcpServerChannelConfig extends DefaultChannelConfig impleme
     private final DatagramSocket javaSocket;
 
     public DefaultUkcpServerChannelConfig(UkcpServerChannel channel, DatagramSocket javaSocket) {
-        super(channel, new FixedRecvByteBufAllocator(512));
+        super(channel, new FixedRecvByteBufAllocator(Consts.FIXED_RECV_BYTEBUF_ALLOCATOR_SIZE));
         this.javaSocket = Objects.requireNonNull(javaSocket, "javaSocket");
     }
 

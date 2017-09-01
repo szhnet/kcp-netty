@@ -1,6 +1,5 @@
 package io.jpower.kcp.netty;
 
-import io.jpower.kcp.netty.old.KcpException;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.channel.nio.AbstractNioMessageChannel;
@@ -286,6 +285,10 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
         pipeline.fireChannelRead(ch);
         pipeline.fireChannelReadComplete();
 
+        if (log.isDebugEnabled()) {
+            log.debug("Create childChannel. remoteAddress={}", remoteAddress);
+        }
+
         if (this.tsUpdate == -1) { // haven't schedule update
             long current = System.currentTimeMillis();
             long tsUp = ch.kcpCheck(current);
@@ -319,6 +322,9 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
             closeWaitKcpMap.put(ukcp.channel().remoteAddress(), new CloseWaitKcp(ukcp, current + Consts
                     .CLOSE_WAIT_TIME));
             tryScheduleCloseWait();
+            if (tsUpdate == -1) {
+                scheduleUpdate(ukcp.check(current), current); // schedule update
+            }
         } else {
             ukcp.setClosed(true);
         }
@@ -405,17 +411,17 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
             }
         }
 
-        if (closeChildList != null && closeChildList.size() > 0) {
-            handleCloseChildList();
-        }
-
         tsUpdate = nextTsUpadte;
         if (tsUpdate != -1) {
             scheduleUpdate(tsUpdate, current);
         }
+
+        if (closeChildList != null && closeChildList.size() > 0) {
+            handleCloseChildList();
+        }
     }
 
-    void updateChild(UkcpServerChildChannel childCh) {
+    void updateChildKcp(UkcpServerChildChannel childCh) {
         long current = System.currentTimeMillis();
         Throwable exception = null;
         try {

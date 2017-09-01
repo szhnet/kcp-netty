@@ -10,15 +10,11 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
  */
 public final class EchoServer {
-
-    private static Logger log = LoggerFactory.getLogger(EchoServer.class);
 
     static final int CONV = Integer.parseInt(System.getProperty("conv", "10"));
     static final int PORT = Integer.parseInt(System.getProperty("port", "8007"));
@@ -50,5 +46,6 @@ public final class EchoServer {
             group.shutdownGracefully();
         }
     }
+
 }
 

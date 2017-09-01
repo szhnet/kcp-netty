@@ -32,8 +32,6 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
     private static final String EXPECTED_TYPES =
             " (expected: " + StringUtil.simpleClassName(ByteBuf.class) + ')';
 
-    private final DefaultChannelConfig config;
-
     private final UkcpClientChannel ukcpChannel;
 
     boolean inputShutdown;
@@ -63,7 +61,6 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
     public UkcpClientUdpChannel(UkcpClientChannel ukcpChannel, DatagramChannel socket) {
         super(null, socket, SelectionKey.OP_READ);
         this.ukcpChannel = ukcpChannel;
-        config = new DefaultChannelConfig(this); // dummy
     }
 
     @Override
@@ -72,8 +69,8 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
     }
 
     @Override
-    public DefaultChannelConfig config() {
-        return config;
+    public ChannelConfig config() {
+        return ukcpChannel.config();
     }
 
     @Override
@@ -170,7 +167,7 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
         DatagramChannel ch = javaChannel();
-        UkcpClientChannelConfig config = ukcpChannel.config();
+        ChannelConfig config = config();
         RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
 
         ByteBuf data = allocHandle.allocate(config.getAllocator());

@@ -7,16 +7,12 @@ import io.jpower.kcp.netty.UkcpClientChannel;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
  */
 
 public final class EchoClient {
-
-    private static Logger log = LoggerFactory.getLogger(EchoClient.class);
 
     static final int CONV = Integer.parseInt(System.getProperty("conv", "10"));
     static final String HOST = System.getProperty("host", "127.0.0.1");
@@ -43,9 +39,6 @@ public final class EchoClient {
             // Start the client.
             ChannelFuture f = b.connect(HOST, PORT).sync();
 
-            Channel ch = f.channel();
-            log.debug("connect={}", ch.isActive());
-
             // Wait until the connection is closed.
             f.channel().closeFuture().sync();
         } finally {
@@ -53,4 +46,5 @@ public final class EchoClient {
             group.shutdownGracefully();
         }
     }
+
 }

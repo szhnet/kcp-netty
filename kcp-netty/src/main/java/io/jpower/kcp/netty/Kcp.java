@@ -836,7 +836,7 @@ public class Kcp {
                         }
                     }
                     if (log.isDebugEnabled()) {
-                        log.debug("{} input push: sn={}, ts={}", this, sn, ts);
+                        log.debug("{} input push: sn={}, una={}, ts={}", this, sn, una, ts);
                     }
                     break;
                 }
@@ -852,7 +852,7 @@ public class Kcp {
                 case IKCP_CMD_WINS: {
                     // do nothing
                     if (log.isDebugEnabled()) {
-                        log.debug("{} input wins: {}", this, wnd);
+                        log.debug("{} input tell: {}", this, wnd);
                     }
                     break;
                 }
@@ -992,7 +992,7 @@ public class Kcp {
                         }
                     }
                     if (log.isDebugEnabled()) {
-                        log.debug("{} input push: sn={}, ts={}", this, sn, ts);
+                        log.debug("{} input push: sn={}, una={}, ts={}", this, sn, una, ts);
                     }
                     break;
                 }
@@ -1236,6 +1236,7 @@ public class Kcp {
                 encodeSeg(buffer, segment);
 
                 if (segLen > 0) {
+                    // don't increases data's readerIndex, because the data may be resend.
                     buffer.writeBytes(segData, segData.readerIndex(), segLen);
                 }
 
@@ -1509,6 +1510,22 @@ public class Kcp {
         this.nocwnd = nocwnd;
     }
 
+    public int getRcvWnd() {
+        return rcvWnd;
+    }
+
+    public void setRcvWnd(int rcvWnd) {
+        this.rcvWnd = rcvWnd;
+    }
+
+    public int getSndWnd() {
+        return sndWnd;
+    }
+
+    public void setSndWnd(int sndWnd) {
+        this.sndWnd = sndWnd;
+    }
+
     public boolean isStream() {
         return stream;
     }
@@ -1535,4 +1552,5 @@ public class Kcp {
                 "conv=" + conv +
                 ')';
     }
+
 }

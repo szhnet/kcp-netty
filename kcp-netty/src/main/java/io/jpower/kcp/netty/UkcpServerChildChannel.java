@@ -24,8 +24,6 @@ public final class UkcpServerChildChannel extends AbstractChannel implements Ukc
     private static final String EXPECTED_TYPES =
             " (expected: " + StringUtil.simpleClassName(ByteBuf.class) + ')';
 
-    private static final boolean SEND_UPDATE = false;
-
     private final DefaultUkcpServerChildChannelConfig config;
 
     private final Ukcp ukcp;
@@ -125,8 +123,8 @@ public final class UkcpServerChildChannel extends AbstractChannel implements Ukc
 
         if (sent) {
             // update kcp
-            if (SEND_UPDATE) {
-                parent().updateChild(this);
+            if (ukcp.isFastFlush()) {
+                parent().updateChildKcp(this);
             } else {
                 kcpTsUpdate(-1);
             }

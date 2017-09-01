@@ -13,27 +13,19 @@ import java.net.StandardSocketOptions;
  */
 public interface UkcpClientChannelConfig extends ChannelConfig, UkcpChannelConfig {
 
-    boolean isNodelay();
-
     UkcpClientChannelConfig setNodelay(boolean nodelay);
-
-    int getInterval();
 
     UkcpClientChannelConfig setInterval(int interval);
 
-    int getFastResend();
-
     UkcpClientChannelConfig setFastResend(int resend);
-
-    boolean isNocwnd();
 
     UkcpClientChannelConfig setNocwnd(boolean nc);
 
-    int getMtu();
-
     UkcpClientChannelConfig setMtu(int mtu);
 
-    boolean isStream();
+    UkcpClientChannelConfig setRcvWnd(int rcvWnd);
+
+    UkcpClientChannelConfig setSndWnd(int sndWnd);
 
     UkcpClientChannelConfig setStream(boolean stream);
 

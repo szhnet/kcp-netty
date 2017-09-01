@@ -19,7 +19,7 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
     private final DatagramSocket javaSocket;
 
     public DefaultUkcpClientChannelConfig(UkcpClientChannel channel, Ukcp ukcp, DatagramSocket javaSocket) {
-        super(channel, new FixedRecvByteBufAllocator(512));
+        super(channel, new FixedRecvByteBufAllocator(Consts.FIXED_RECV_BYTEBUF_ALLOCATOR_SIZE));
         this.ukcp = Objects.requireNonNull(ukcp, "ukcp");
         this.javaSocket = Objects.requireNonNull(javaSocket, "javaSocket");
     }
@@ -29,7 +29,8 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
     public Map<ChannelOption<?>, Object> getOptions() {
         return getOptions(
                 super.getOptions(),
-                UKCP_NODELAY, UKCP_INTERVAL, UKCP_FAST_RESEND, UKCP_NOCWND, UKCP_MTU, UKCP_STREAM,
+                UKCP_NODELAY, UKCP_INTERVAL, UKCP_FAST_RESEND, UKCP_NOCWND, UKCP_MTU, UKCP_RCV_WND, UKCP_SND_WND,
+                UKCP_STREAM, UKCP_AUTO_SET_CONV, UKCP_FAST_FLUSH,
                 SO_RCVBUF, SO_SNDBUF, SO_REUSEADDR, IP_TOS);
     }
 
@@ -51,11 +52,20 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
         if (option == UKCP_MTU) {
             return (T) Integer.valueOf(getMtu());
         }
+        if (option == UKCP_RCV_WND) {
+            return (T) Integer.valueOf(getRcvWnd());
+        }
+        if (option == UKCP_SND_WND) {
+            return (T) Integer.valueOf(getSndWnd());
+        }
         if (option == UKCP_STREAM) {
             return (T) Boolean.valueOf(isStream());
         }
         if (option == UKCP_AUTO_SET_CONV) {
             return (T) Boolean.valueOf(isAutoSetConv());
+        }
+        if (option == UKCP_FAST_FLUSH) {
+            return (T) Boolean.valueOf(isFastFlush());
         }
         if (option == SO_RCVBUF) {
             return (T) Integer.valueOf(getUdpReceiveBufferSize());
@@ -87,10 +97,16 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
             setNocwnd((Boolean) value);
         } else if (option == UKCP_MTU) {
             setMtu((Integer) value);
+        } else if (option == UKCP_RCV_WND) {
+            setRcvWnd((Integer) value);
+        } else if (option == UKCP_SND_WND) {
+            setSndWnd((Integer) value);
         } else if (option == UKCP_STREAM) {
             setStream((Boolean) value);
         } else if (option == UKCP_AUTO_SET_CONV) {
             setAutoSetConv((Boolean) value);
+        } else if (option == UKCP_FAST_FLUSH) {
+            setFastFlush((Boolean) value);
         } else if (option == SO_RCVBUF) {
             setUdpReceiveBufferSize((Integer) value);
         } else if (option == SO_SNDBUF) {
@@ -104,16 +120,6 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
         }
 
         return true;
-    }
-
-    public UkcpClientChannelConfig turbo() {
-        return setNodelay(true).setInterval(Consts.TURBO_INTERVAL).setFastResend(Consts.TURBO_FAST_RESEND).setNocwnd
-                (true);
-    }
-
-    public UkcpClientChannelConfig normal() {
-        return setNodelay(false).setInterval(Consts.NORMAL_INTERVAL).setFastResend(Consts.NORMAL_FAST_RESEND)
-                .setNocwnd(false);
     }
 
     @Override
@@ -172,6 +178,28 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
     }
 
     @Override
+    public int getRcvWnd() {
+        return ukcp.getRcvWnd();
+    }
+
+    @Override
+    public UkcpClientChannelConfig setRcvWnd(int rcvWnd) {
+        ukcp.setRcvWnd(rcvWnd);
+        return this;
+    }
+
+    @Override
+    public int getSndWnd() {
+        return ukcp.getSndWnd();
+    }
+
+    @Override
+    public UkcpClientChannelConfig setSndWnd(int sndWnd) {
+        ukcp.setSndWnd(sndWnd);
+        return this;
+    }
+
+    @Override
     public boolean isStream() {
         return ukcp.isStream();
     }
@@ -190,6 +218,17 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
     @Override
     public UkcpChannelConfig setAutoSetConv(boolean autoSetConv) {
         ukcp.setAutoSetConv(autoSetConv);
+        return this;
+    }
+
+    @Override
+    public boolean isFastFlush() {
+        return ukcp.isFastFlush();
+    }
+
+    @Override
+    public UkcpChannelConfig setFastFlush(boolean fastFlush) {
+        ukcp.setFastFlush(fastFlush);
         return this;
     }
 

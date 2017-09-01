@@ -27,6 +27,14 @@ public interface UkcpChannelConfig extends ChannelConfig {
 
     UkcpChannelConfig setMtu(int mtu);
 
+    int getRcvWnd();
+
+    UkcpChannelConfig setRcvWnd(int rcvWnd);
+
+    int getSndWnd();
+
+    UkcpChannelConfig setSndWnd(int sndWnd);
+
     boolean isStream();
 
     UkcpChannelConfig setStream(boolean stream);
@@ -34,5 +42,9 @@ public interface UkcpChannelConfig extends ChannelConfig {
     boolean isAutoSetConv();
 
     UkcpChannelConfig setAutoSetConv(boolean autoSetConv);
+
+    boolean isFastFlush();
+
+    UkcpChannelConfig setFastFlush(boolean fastFlush);
 
 }
