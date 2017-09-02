@@ -38,6 +38,8 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
 
     private long tsUpdate = -1;
 
+    private boolean flushPending;
+
     boolean closeAnother = false;
 
     public UkcpClientChannel() {
@@ -62,6 +64,11 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
     @Override
     public UkcpClientChannelConfig config() {
         return config;
+    }
+
+    @Override
+    public UkcpClientUnsafe unsafe() {
+        return (UkcpClientUnsafe) super.unsafe();
     }
 
     @Override
@@ -146,13 +153,22 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
         for (; ; ) {
             Object msg = in.current();
             if (msg == null) {
+                flushPending = false;
                 break;
             }
             try {
-                kcpSend((ByteBuf) msg);
-                sent = true;
+                boolean done = false;
+                if (kcpSend((ByteBuf) msg)) {
+                    done = true;
+                    sent = true;
+                }
 
-                in.remove();
+                if (done) {
+                    in.remove();
+                } else {
+                    flushPending = true;
+                    break;
+                }
             } catch (IOException e) {
                 throw e; // throw exception and close channel
             }
@@ -188,6 +204,10 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
         return (InetSocketAddress) super.remoteAddress();
     }
 
+    public boolean isFlushPending() {
+        return flushPending;
+    }
+
     public int conv() {
         return ukcp.getConv();
     }
@@ -205,12 +225,21 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
         ukcp.input(buf);
     }
 
-    void kcpSend(ByteBuf buf) throws IOException {
-        ukcp.send(buf);
+    boolean kcpSend(ByteBuf buf) throws IOException {
+        if (kcpCanSend()) {
+            ukcp.send(buf);
+            return true;
+        } else {
+            return false;
+        }
     }
 
     boolean kcpCanRecv() {
         return ukcp.canRecv();
+    }
+
+    boolean kcpCanSend() {
+        return ukcp.canSend();
     }
 
     int kcpPeekSize() {
@@ -247,6 +276,9 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
 
     @Override
     public void run() {
+        if (!isActive()) {
+            return;
+        }
         long current = System.currentTimeMillis();
 
         long nextTsUpadte = -1;
@@ -273,6 +305,10 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
         if (exception != null) {
             close = true;
             nextTsUpadte = -1;
+        } else {
+            if (isFlushPending() && kcpCanSend()) {
+                unsafe().forceFlush();
+            }
         }
 
         tsUpdate = nextTsUpadte;
@@ -306,7 +342,7 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
         }
     }
 
-    private final class UkcpClientUnsafe extends AbstractUnsafe {
+    final class UkcpClientUnsafe extends AbstractUnsafe {
 
         @Override
         public void connect(SocketAddress remoteAddress, SocketAddress localAddress, ChannelPromise promise) {
@@ -350,6 +386,18 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
             if (!promiseSet) {
                 close(voidPromise());
             }
+        }
+
+        @Override
+        protected void flush0() {
+            if (isFlushPending()) {
+                return;
+            }
+            super.flush0();
+        }
+
+        void forceFlush() {
+            super.flush0();
         }
 
     }

@@ -65,17 +65,4 @@ public class UkcpPacket extends AbstractReferenceCounted {
         return this;
     }
 
-    public void release(boolean releaseContent) {
-        if (releaseContent) {
-            release();
-        } else {
-            if (content != null) {
-                content = null;
-                remoteAddress = null;
-
-                recycle();
-            }
-        }
-    }
-
 }

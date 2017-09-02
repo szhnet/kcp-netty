@@ -49,7 +49,9 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
 
     private boolean scheduleCloseWait = false;
 
-    private List<Object> closeChildList = null;
+    private List<UkcpServerChildChannel> writeChannels = new ArrayList<>();
+
+    private List<Object> closeChildList = new ArrayList<>();
 
     private Runnable closeWaitRunner = new CloseWaitRun();
 
@@ -208,8 +210,9 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
             if (isSingleDirectBuffer(content)) {
                 return p;
             }
+            content.retain(); // newDirectBuffer method call release method of content
             UkcpPacket np = UkcpPacket.newInstance(newDirectBuffer(content), p.remoteAddress());
-            p.release(false);
+            p.release();
             return np;
         }
 
@@ -365,8 +368,12 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
                 }
 
                 if (exception != null) {
-                    getOrCreateCloseChildList().add(new ExceptionCloseWrapper(childCh, exception));
+                    closeChildList.add(new ExceptionCloseWrapper(childCh, exception));
                     nextTsUp = -1;
+                } else {
+                    if (childCh.isFlushPending() && childCh.kcpCanSend()) {
+                        writeChannels.add(childCh);
+                    }
                 }
             } else {
                 nextTsUp = tsUp;
@@ -374,6 +381,13 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
             if (nextTsUp != -1 && (nextTsUpadte == -1 || nextTsUp < nextTsUpadte)) {
                 nextTsUpadte = nextTsUp;
             }
+        }
+
+        if (writeChannels.size() > 0) {
+            for (UkcpServerChildChannel childCh : writeChannels) {
+                childCh.unsafe().forceFlush();
+            }
+            writeChannels.clear();
         }
 
         if (closeWaitKcpMap.size() > 0) {
@@ -416,7 +430,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
             scheduleUpdate(tsUpdate, current);
         }
 
-        if (closeChildList != null && closeChildList.size() > 0) {
+        if (closeChildList.size() > 0) {
             handleCloseChildList();
         }
     }
@@ -440,13 +454,6 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
         if (exception != null) {
             Utils.fireExceptionAndClose(childCh, exception, true);
         }
-    }
-
-    private List<Object> getOrCreateCloseChildList() {
-        if (closeChildList == null) {
-            closeChildList = new ArrayList<>();
-        }
-        return closeChildList;
     }
 
     private void handleCloseChildList() {

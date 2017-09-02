@@ -249,7 +249,7 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
             assert eventLoop().inEventLoop();
             final ChannelConfig config = config();
             final ChannelPipeline pipeline = pipeline();
-            final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
+            final RecvByteBufAllocator.Handle allocHandle = recvBufAllocHandle();
             allocHandle.reset(config);
 
             boolean closed = false;
@@ -295,8 +295,7 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
                     Utils.fireChannelRead(ukcpChannel, bufList);
                     bufList.recycle();
                 }
-                // clear readBuf and release msgs in readBuf whitch don't be handled.
-                clearAndReleaseReadBuf(handledBufIdx);
+                clearAndReleaseReadBuf();
                 allocHandle.readComplete();
 
                 if (exception != null) {
@@ -330,9 +329,9 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
             }
         }
 
-        private void clearAndReleaseReadBuf(int handledBufIdx) {
+        private void clearAndReleaseReadBuf() {
             int size = readBuf.size();
-            for (int i = handledBufIdx + 1; i < size; i++) {
+            for (int i = 0; i < size; i++) {
                 Object msg = readBuf.get(i);
                 ReferenceCountUtil.release(msg);
             }

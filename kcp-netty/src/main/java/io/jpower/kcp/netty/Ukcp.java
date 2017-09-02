@@ -68,6 +68,10 @@ public class Ukcp {
         return kcp.canRecv();
     }
 
+    public boolean canSend() {
+        return kcp.waitSnd() < kcp.getSndWnd() * 2;
+    }
+
     public long update(long current) {
         kcp.update(current);
         long nextTsUp = check(current);
