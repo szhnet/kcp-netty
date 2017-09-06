@@ -1,0 +1,8 @@
+language: java
+
+jdk:
+  - oraclejdk8
+
+notifications:
+  email:
+      - szhnet@gmail.com

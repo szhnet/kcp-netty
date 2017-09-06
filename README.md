@@ -10,3 +10,12 @@
 [8]: LICENSE
 
 Java implementation of KCP based on Netty
+
+To add a dependency using Maven:
+```xml
+<dependency>
+  <groupId>io.jpower.kcp</groupId>
+  <artifactId>kcp-netty</artifactId>
+  <version>1.1.0</version>
+</dependency>
+```
