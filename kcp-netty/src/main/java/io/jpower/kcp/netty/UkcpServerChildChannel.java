@@ -193,7 +193,7 @@ public final class UkcpServerChildChannel extends AbstractChannel implements Ukc
     }
 
     boolean kcpSend(ByteBuf buf) throws IOException {
-        if (kcpCanSend()) {
+        if (ukcp.canSend(true)) {
             ukcp.send(buf);
             return true;
         } else {
@@ -206,7 +206,7 @@ public final class UkcpServerChildChannel extends AbstractChannel implements Ukc
     }
 
     boolean kcpCanSend() {
-        return ukcp.canSend();
+        return ukcp.canSend(!flushPending);
     }
 
     int kcpPeekSize() {
@@ -214,9 +214,6 @@ public final class UkcpServerChildChannel extends AbstractChannel implements Ukc
     }
 
     long kcpUpdate(long current) {
-        if (flushPending && ukcp.canSend()) {
-            unsafe().forceFlush();
-        }
         return ukcp.update(current);
     }
 

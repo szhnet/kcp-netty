@@ -68,8 +68,15 @@ public class Ukcp {
         return kcp.canRecv();
     }
 
-    public boolean canSend() {
-        return kcp.waitSnd() < kcp.getSndWnd() * 2;
+    public boolean canSend(boolean curCanSend) {
+        int max = kcp.getSndWnd() * 2;
+        int waitSnd = kcp.waitSnd();
+        if (curCanSend) {
+            return waitSnd < max;
+        } else {
+            int threshold = Math.max(1, max / 2);
+            return waitSnd < threshold;
+        }
     }
 
     public long update(long current) {

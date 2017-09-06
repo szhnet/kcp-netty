@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.ListIterator;
 
 /**
- * Java implementation of <a href=" https://github.com/skywind3000/kcp">KCP</a>
+ * Java implementation of <a href="https://github.com/skywind3000/kcp">KCP</a>
  *
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
  */

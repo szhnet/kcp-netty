@@ -226,7 +226,7 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
     }
 
     boolean kcpSend(ByteBuf buf) throws IOException {
-        if (kcpCanSend()) {
+        if (ukcp.canSend(true)) {
             ukcp.send(buf);
             return true;
         } else {
@@ -239,7 +239,7 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
     }
 
     boolean kcpCanSend() {
-        return ukcp.canSend();
+        return ukcp.canSend(!flushPending);
     }
 
     int kcpPeekSize() {
