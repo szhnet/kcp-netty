@@ -7,6 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * Handler implementation for the echo server.
+ *
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
  */
 public class EchoServerHandler extends ChannelInboundHandlerAdapter {

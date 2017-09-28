@@ -7,6 +7,10 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 /**
+ * Measures RTT(Round-trip time) for TCP.
+ * <p>
+ * Sends a message to server and receive a response from server to measure RTT.
+ *
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
  */
 public class TcpRttClient {

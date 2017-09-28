@@ -1,4 +1,4 @@
-package io.jpower.kcp.netty;
+package io.jpower.kcp.netty.internal;
 
 import io.netty.util.Recycler;
 

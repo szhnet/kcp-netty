@@ -19,6 +19,9 @@ public final class UkcpChannelOption<T> extends ChannelOption<T> {
     public static final ChannelOption<Boolean> UKCP_NOCWND =
             valueOf(UkcpChannelOption.class, "UKCP_NOCWND");
 
+    public static final ChannelOption<Integer> UKCP_MIN_RTO =
+            valueOf(UkcpChannelOption.class, "UKCP_MIN_RTO");
+
     public static final ChannelOption<Integer> UKCP_MTU =
             valueOf(UkcpChannelOption.class, "UKCP_MTU");
 
@@ -30,6 +33,9 @@ public final class UkcpChannelOption<T> extends ChannelOption<T> {
 
     public static final ChannelOption<Boolean> UKCP_STREAM =
             valueOf(UkcpChannelOption.class, "UKCP_STREAM");
+
+    public static final ChannelOption<Integer> UKCP_DEAD_LINK =
+            valueOf(UkcpChannelOption.class, "UKCP_DEAD_LINK");
 
     public static final ChannelOption<Boolean> UKCP_AUTO_SET_CONV =
             valueOf(UkcpChannelOption.class, "UKCP_AUTO_SET_CONV");

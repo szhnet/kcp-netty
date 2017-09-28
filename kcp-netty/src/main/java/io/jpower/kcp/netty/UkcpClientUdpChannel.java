@@ -1,5 +1,6 @@
 package io.jpower.kcp.netty;
 
+import io.jpower.kcp.netty.internal.CodecOutputList;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.channel.nio.AbstractNioMessageChannel;
@@ -275,13 +276,11 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
                 Throwable exception1 = null;
                 int size = readBuf.size();
                 CodecOutputList<ByteBuf> bufList = size > 0 ? CodecOutputList.newInstance() : null;
-                int handledBufIdx = -1;
                 try {
                     for (int i = 0; i < size; i++) {
                         ByteBuf byteBuf = (ByteBuf) readBuf.get(i);
 
                         ukcpChannel.kcpInput(byteBuf);
-                        handledBufIdx = i;
                         ukcpChannel.kcpTsUpdate(-1); // update kcp
 
                         if (ukcpChannel.kcpCanRecv()) {

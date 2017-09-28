@@ -402,7 +402,7 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
 
     }
 
-    private class UkcpClientOutput implements KcpOutput {
+    private static class UkcpClientOutput implements KcpOutput {
 
         @Override
         public void out(ByteBuf data, Kcp kcp) {

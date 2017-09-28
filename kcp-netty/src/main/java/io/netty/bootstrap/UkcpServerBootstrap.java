@@ -12,14 +12,17 @@ import java.util.Map;
 /**
  * The constructure of {@link AbstractBootstrap} is package-private,
  * so the package of this class is 'io.netty.bootstrap'
- *
- * diffrence
- * 1. childGroup
- * 2. ServerUkcpBootstrapAcceptor
+ * <p>
+ * <h3>diffrence:</h3>
+ * <ul>
+ * <li>childGroup</li>
+ * <li>ServerUkcpBootstrapAcceptor</li>
+ * </ul>
  *
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
  */
-public class UkcpServerBootstrap extends AbstractBootstrap<UkcpServerBootstrap, UkcpServerChannel> {
+public class UkcpServerBootstrap extends AbstractBootstrap<UkcpServerBootstrap, UkcpServerChannel> implements
+        Cloneable {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ServerBootstrap.class);
 

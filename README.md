@@ -2,6 +2,20 @@
 
 [![Build Status][1]][2] [![Powered][3]][4] [![Powered][5]][6] [![MIT licensed][7]][8]
 
+Java implementation of KCP based on Netty
+
+To add a dependency using Maven:
+```xml
+<dependency>
+    <groupId>io.jpower.kcp</groupId>
+    <artifactId>kcp-netty</artifactId>
+    <version>1.1.0</version>
+</dependency>
+```
+
+## How to use
+You can find the examples in the [examples][20] directory.
+
 [1]: https://api.travis-ci.org/szhnet/kcp-netty.svg?branch=master
 [2]: https://travis-ci.org/szhnet/kcp-netty
 [3]: https://img.shields.io/badge/KCP-Powered-blue.svg
@@ -10,14 +24,4 @@
 [6]: https://netty.io
 [7]: https://img.shields.io/badge/license-MIT-yellow.svg
 [8]: LICENSE
-
-Java implementation of KCP based on Netty
-
-To add a dependency using Maven:
-```xml
-<dependency>
-  <groupId>io.jpower.kcp</groupId>
-  <artifactId>kcp-netty</artifactId>
-  <version>1.1.0</version>
-</dependency>
-```
+[20]: kcp-example/src/main/java/io/jpower/kcp/example 

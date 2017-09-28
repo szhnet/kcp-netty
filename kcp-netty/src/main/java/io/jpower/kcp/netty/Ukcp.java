@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.util.List;
 
 /**
+ * Wrapper for kcp
+ *
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
  */
 public class Ukcp {
@@ -24,23 +26,34 @@ public class Ukcp {
 
     private volatile boolean active;
 
+    /**
+     * Creates a new instance.
+     *
+     * @param conv   conv of kcp
+     * @param output output for kcp
+     */
     public Ukcp(int conv, KcpOutput output) {
         Kcp kcp = new Kcp(conv, output);
         this.kcp = kcp;
         this.active = true;
     }
 
+    /**
+     * Receives ByteBufs.
+     *
+     * @param bufList received ByteBuf will be add to the list
+     */
     public void receive(List<ByteBuf> bufList) {
         kcp.recv(bufList);
     }
 
     public void input(ByteBuf data) throws IOException {
-        int ret = kcp.input6(data);
+        int ret = kcp.input(data);
         switch (ret) {
             case -1:
-                throw new IOException("No enough bytes");
+                throw new IOException("No enough bytes of head");
             case -2:
-                throw new IOException("No enough bytes");
+                throw new IOException("No enough bytes of data");
             case -3:
                 throw new IOException("Mismatch cmd");
             case -4:
@@ -50,8 +63,14 @@ public class Ukcp {
         }
     }
 
+    /**
+     * Sends a Bytebuf.
+     *
+     * @param buf
+     * @throws IOException
+     */
     public void send(ByteBuf buf) throws IOException {
-        int ret = kcp.send6(buf);
+        int ret = kcp.send(buf);
         switch (ret) {
             case -2:
                 throw new IOException("Too many fragments");
@@ -60,14 +79,30 @@ public class Ukcp {
         }
     }
 
+    /**
+     * The size of the first msg of the kcp.
+     *
+     * @return The size of the first msg of the kcp, or -1 if none of msg
+     */
     public int peekSize() {
         return kcp.peekSize();
     }
 
+    /**
+     * Returns {@code true} if there are bytes can be received.
+     *
+     * @return
+     */
     public boolean canRecv() {
         return kcp.canRecv();
     }
 
+    /**
+     * Returns {@code true} if the kcp can send more bytes.
+     *
+     * @param curCanSend last state of canSend
+     * @return {@code true} if the kcp can send more bytes
+     */
     public boolean canSend(boolean curCanSend) {
         int max = kcp.getSndWnd() * 2;
         int waitSnd = kcp.waitSnd();
@@ -79,6 +114,12 @@ public class Ukcp {
         }
     }
 
+    /**
+     * Udpates the kcp.
+     *
+     * @param current current time in milliseconds
+     * @return the next time to update
+     */
     public long update(long current) {
         kcp.update(current);
         long nextTsUp = check(current);
@@ -87,48 +128,112 @@ public class Ukcp {
         return nextTsUp;
     }
 
+    /**
+     * Determines when should you invoke udpate.
+     *
+     * @param current current time in milliseconds
+     * @return
+     * @see Kcp#check(long)
+     */
     public long check(long current) {
         return kcp.check(current);
     }
 
+    /**
+     * Returns {@code true} if the kcp need to flush.
+     *
+     * @return {@code true} if the kcp need to flush
+     */
     public boolean checkFlush() {
         return kcp.checkFlush();
     }
 
+    /**
+     * Sets params of nodelay.
+     *
+     * @param nodelay  {@code true} if nodelay mode is enabled
+     * @param interval protocol internal work interval, in milliseconds
+     * @param resend   fast retransmission mode, 0 represents off by default, 2 can be set (2 ACK spans will result
+     *                 in direct retransmission)
+     * @param nc       {@code true} if turn off flow control
+     */
     public void nodelay(boolean nodelay, int interval, int resend, boolean nc) {
         kcp.nodelay(nodelay, interval, resend, nc);
     }
 
+    /**
+     * Returns conv of kcp.
+     *
+     * @return conv of kcp
+     */
     public int getConv() {
         return kcp.getConv();
     }
 
+    /**
+     * Set the conv of kcp.
+     *
+     * @param conv the conv of kcp
+     */
     public void setConv(int conv) {
         kcp.setConv(conv);
     }
 
+    /**
+     * Returns {@code true} if and only if nodelay is enabled.
+     *
+     * @return {@code true} if and only if nodelay is enabled
+     */
     public boolean isNodelay() {
         return kcp.isNodelay();
     }
 
+    /**
+     * Sets whether enable nodelay.
+     *
+     * @param nodelay {@code true} if enable nodelay
+     * @return this object
+     */
     public Ukcp setNodelay(boolean nodelay) {
         kcp.setNodelay(nodelay);
         return this;
     }
 
+    /**
+     * Returns update interval.
+     *
+     * @return update interval
+     */
     public int getInterval() {
         return kcp.getInterval();
     }
 
+    /**
+     * Sets update interval
+     *
+     * @param interval update interval
+     * @return this object
+     */
     public Ukcp setInterval(int interval) {
         kcp.setInterval(interval);
         return this;
     }
 
+    /**
+     * Returns the fastresend of kcp.
+     *
+     * @return the fastresend of kcp
+     */
     public int getFastResend() {
         return kcp.getFastresend();
     }
 
+    /**
+     * Sets the fastresend of kcp.
+     *
+     * @param fastResend
+     * @return this object
+     */
     public Ukcp setFastResend(int fastResend) {
         kcp.setFastresend(fastResend);
         return this;
@@ -140,6 +245,15 @@ public class Ukcp {
 
     public Ukcp setNocwnd(boolean nocwnd) {
         kcp.setNocwnd(nocwnd);
+        return this;
+    }
+
+    public int getMinRto() {
+        return kcp.getRxMinrto();
+    }
+
+    public Ukcp setMinRto(int minRto) {
+        kcp.setRxMinrto(minRto);
         return this;
     }
 
@@ -161,6 +275,21 @@ public class Ukcp {
         return this;
     }
 
+    public int getDeadLink() {
+        return kcp.getDeadLink();
+    }
+
+    public Ukcp setDeadLink(int deadLink) {
+        kcp.setDeadLink(deadLink);
+        return this;
+    }
+
+    /**
+     * Sets the {@link ByteBufAllocator} which is used for the kcp to allocate buffers.
+     *
+     * @param allocator
+     * @return
+     */
     public Ukcp setByteBufAllocator(ByteBufAllocator allocator) {
         kcp.setByteBufAllocator(allocator);
         return this;

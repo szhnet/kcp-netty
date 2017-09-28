@@ -1,6 +1,7 @@
 package io.jpower.kcp.netty;
 
 
+import io.jpower.kcp.netty.internal.CodecOutputList;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;

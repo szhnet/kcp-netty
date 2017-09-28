@@ -12,6 +12,8 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 
 /**
+ * Echoes back any received data from a client.
+ *
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
  */
 public final class EchoServer {

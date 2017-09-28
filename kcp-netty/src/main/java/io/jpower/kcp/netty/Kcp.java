@@ -1,5 +1,7 @@
 package io.jpower.kcp.netty;
 
+import io.jpower.kcp.netty.internal.ReItrLinkedList;
+import io.jpower.kcp.netty.internal.ReusableListIterator;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.util.Recycler;
@@ -152,11 +154,17 @@ public class Kcp {
 
     private LinkedList<Segment> sndQueue = new LinkedList<>();
 
-    private LinkedList<Segment> rcvQueue = new LinkedList<>();
+    private ReItrLinkedList<Segment> rcvQueue = new ReItrLinkedList<>();
 
-    private LinkedList<Segment> sndBuf = new LinkedList<>();
+    private ReItrLinkedList<Segment> sndBuf = new ReItrLinkedList<>();
 
-    private LinkedList<Segment> rcvBuf = new LinkedList<>();
+    private ReItrLinkedList<Segment> rcvBuf = new ReItrLinkedList<>();
+
+    private ReusableListIterator<Segment> rcvQueueItr = rcvQueue.listIterator();
+
+    private ReusableListIterator<Segment> sndBufItr = sndBuf.listIterator();
+
+    private ReusableListIterator<Segment> rcvBufItr = rcvBuf.listIterator();
 
     private int[] acklist = new int[8];
 
@@ -315,7 +323,7 @@ public class Kcp {
         release(rcvQueue);
     }
 
-    private void release(LinkedList<Segment> segQueue) {
+    private void release(List<Segment> segQueue) {
         for (Segment seg : segQueue) {
             seg.recycle(true);
         }
@@ -341,6 +349,10 @@ public class Kcp {
             return -2;
         }
 
+        if (peekSize > buf.maxCapacity()) {
+            return -3;
+        }
+
         boolean recover = false;
         if (rcvQueue.size() >= rcvWnd) {
             recover = true;
@@ -349,7 +361,7 @@ public class Kcp {
         // merge fragment
         int count = 0;
         int len = 0;
-        for (Iterator<Segment> itr = rcvQueue.iterator(); itr.hasNext(); ) {
+        for (Iterator<Segment> itr = rcvQueueItr.rewind(); itr.hasNext(); ) {
             Segment seg = itr.next();
             len += seg.data.readableBytes();
             buf.writeBytes(seg.data);
@@ -402,7 +414,7 @@ public class Kcp {
         // merge fragment
         int count = 0;
         int len = 0;
-        for (Iterator<Segment> itr = rcvQueue.iterator(); itr.hasNext(); ) {
+        for (Iterator<Segment> itr = rcvQueueItr.rewind(); itr.hasNext(); ) {
             Segment seg = itr.next();
             len += seg.data.readableBytes();
             bufList.add(seg.data);
@@ -447,12 +459,13 @@ public class Kcp {
             return seg.data.readableBytes();
         }
 
-        if (rcvQueue.size() < seg.frg + 1) { // segmentmeid没到齐
+        if (rcvQueue.size() < seg.frg + 1) { // Some segments have not arrived yet
             return -1;
         }
 
         int len = 0;
-        for (Segment s : rcvQueue) {
+        for (Iterator<Segment> itr = rcvQueueItr.rewind(); itr.hasNext(); ) {
+            Segment s = itr.next();
             len += s.data.readableBytes();
             if (s.frg == 0) {
                 break;
@@ -472,14 +485,14 @@ public class Kcp {
             return true;
         }
 
-        if (rcvQueue.size() < seg.frg + 1) { // segment没到齐
+        if (rcvQueue.size() < seg.frg + 1) { // Some segments have not arrived yet
             return false;
         }
 
         return true;
     }
 
-    public int send(ByteBuf buf) {
+    public int send1(ByteBuf buf) {
         assert mss > 0;
 
         int len = buf.readableBytes();
@@ -490,11 +503,18 @@ public class Kcp {
         // append to previous segment in streaming mode (if possible)
         if (stream) {
             if (!sndQueue.isEmpty()) {
-                Segment old = sndQueue.peekLast();
+                Segment last = sndQueue.peekLast();
                 if (len < mss) {
-                    int capacity = mss - old.data.readableBytes();
+                    ByteBuf lastData = last.data;
+                    int capacity = mss - last.data.readableBytes();
                     int extend = len < capacity ? len : capacity;
-                    old.data.writeBytes(buf, extend);
+                    if (lastData.maxWritableBytes() < extend) { // extend
+                        ByteBuf newBuf = byteBufAllocator.ioBuffer(lastData.readableBytes() + extend);
+                        newBuf.writeBytes(lastData);
+                        lastData.release();
+                        lastData = last.data = newBuf;
+                    }
+                    lastData.writeBytes(buf, extend);
 
                     len = buf.readableBytes();
                     if (len == 0) {
@@ -511,11 +531,11 @@ public class Kcp {
             count = (len + mss - 1) / mss;
         }
 
-        if (count > 255) { // 流模式没必要判断这个吧
+        if (count > 255) { // Maybe don't need the conditon in stream mode
             return -2;
         }
 
-        if (count == 0) { // 不可能为0吧
+        if (count == 0) { // impossible
             count = 1;
         }
 
@@ -532,7 +552,7 @@ public class Kcp {
         return 0;
     }
 
-    public int send6(ByteBuf buf) {
+    public int send(ByteBuf buf) {
         assert mss > 0;
 
         int len = buf.readableBytes();
@@ -543,18 +563,18 @@ public class Kcp {
         // append to previous segment in streaming mode (if possible)
         if (stream) {
             if (!sndQueue.isEmpty()) {
-                Segment old = sndQueue.peekLast();
+                Segment last = sndQueue.peekLast();
                 if (len < mss) {
-                    ByteBuf oldData = old.data;
-                    int capacity = mss - oldData.readableBytes();
+                    ByteBuf lastData = last.data;
+                    int capacity = mss - lastData.readableBytes();
                     int extend = len < capacity ? len : capacity;
-                    if (oldData.maxWritableBytes() < extend) { // extend
-                        ByteBuf newBuf = byteBufAllocator.ioBuffer(oldData.readableBytes() + extend);
-                        newBuf.writeBytes(oldData);
-                        oldData.release();
-                        oldData = old.data = newBuf;
+                    if (lastData.maxWritableBytes() < extend) { // extend
+                        ByteBuf newBuf = byteBufAllocator.ioBuffer(lastData.readableBytes() + extend);
+                        newBuf.writeBytes(lastData);
+                        lastData.release();
+                        lastData = last.data = newBuf;
                     }
-                    oldData.writeBytes(buf, extend);
+                    lastData.writeBytes(buf, extend);
 
                     len = buf.readableBytes();
                     if (len == 0) {
@@ -571,11 +591,11 @@ public class Kcp {
             count = (len + mss - 1) / mss;
         }
 
-        if (count > 255) { // 流模式没必要判断这个吧
+        if (count > 255) { // Maybe don't need the conditon in stream mode
             return -2;
         }
 
-        if (count == 0) { // 不可能为0吧
+        if (count == 0) { // impossible
             count = 1;
         }
 
@@ -624,7 +644,7 @@ public class Kcp {
             return;
         }
 
-        for (Iterator<Segment> itr = sndBuf.iterator(); itr.hasNext(); ) {
+        for (Iterator<Segment> itr = sndBufItr.rewind(); itr.hasNext(); ) {
             Segment seg = itr.next();
             if (sn == seg.sn) {
                 itr.remove();
@@ -638,7 +658,7 @@ public class Kcp {
     }
 
     private void parseUna(long una) {
-        for (Iterator<Segment> itr = sndBuf.iterator(); itr.hasNext(); ) {
+        for (Iterator<Segment> itr = sndBufItr.rewind(); itr.hasNext(); ) {
             Segment seg = itr.next();
             if (itimediff(una, seg.sn) > 0) {
                 itr.remove();
@@ -654,7 +674,7 @@ public class Kcp {
             return;
         }
 
-        for (Iterator<Segment> itr = sndBuf.iterator(); itr.hasNext(); ) {
+        for (Iterator<Segment> itr = sndBufItr.rewind(); itr.hasNext(); ) {
             Segment seg = itr.next();
             if (itimediff(sn, seg.sn) < 0) {
                 break;
@@ -696,7 +716,7 @@ public class Kcp {
         boolean findPos = false;
         ListIterator<Segment> listItr = null;
         if (rcvBuf.size() > 0) {
-            listItr = rcvBuf.listIterator(rcvBuf.size());
+            listItr = rcvBufItr.rewind(rcvBuf.size());
             while (listItr.hasPrevious()) {
                 Segment seg = listItr.previous();
                 if (seg.sn == sn) {
@@ -722,11 +742,11 @@ public class Kcp {
         }
 
         // move available data from rcv_buf -> rcv_queue
-        moveRcvData(); // 应该不是重复包才会有这逻辑吧？
+        moveRcvData(); // Invoke the method only if the segment is not repeat?
     }
 
     private void moveRcvData() {
-        for (Iterator<Segment> itr = rcvBuf.iterator(); itr.hasNext(); ) {
+        for (Iterator<Segment> itr = rcvBufItr.rewind(); itr.hasNext(); ) {
             Segment seg = itr.next();
             if (seg.sn == rcvNxt && rcvQueue.size() < rcvWnd) {
                 itr.remove();
@@ -738,7 +758,7 @@ public class Kcp {
         }
     }
 
-    private int input(ByteBuf data) {
+    private int input1(ByteBuf data) {
         long oldSndUna = sndUna;
         long maxack = 0;
         boolean flag = false;
@@ -894,7 +914,7 @@ public class Kcp {
         return 0;
     }
 
-    public int input6(ByteBuf data) {
+    public int input(ByteBuf data) {
         long oldSndUna = sndUna;
         long maxack = 0;
         boolean flag = false;
@@ -1060,7 +1080,7 @@ public class Kcp {
     /**
      * ikcp_flush
      */
-    private void flush() { // XXX zero copy
+    private void flush() {
         long current = this.current;
         long uintCurrent = long2Uint(current);
 
@@ -1182,7 +1202,8 @@ public class Kcp {
         // flush data segments
         int change = 0;
         boolean lost = false;
-        for (Segment segment : sndBuf) {
+        for (Iterator<Segment> itr = sndBufItr.rewind(); itr.hasNext();) {
+            Segment segment = itr.next();
             boolean needsend = false;
             if (segment.xmit == 0) {
                 needsend = true;
@@ -1353,7 +1374,8 @@ public class Kcp {
         int tmFlush = itimediff(tsFlush, current);
         int tmPacket = Integer.MAX_VALUE;
 
-        for (Segment seg : sndBuf) {
+        for (Iterator<Segment> itr = sndBufItr.rewind(); itr.hasNext();) {
+            Segment seg = itr.next();
             int diff = itimediff(seg.resendts, current);
             if (diff <= 0) {
                 return current;
@@ -1392,7 +1414,7 @@ public class Kcp {
     }
 
     public int setMtu(int mtu) {
-        if (mtu < 50 || mtu < IKCP_OVERHEAD) {
+        if (mtu < IKCP_OVERHEAD || mtu < 50) {
             return -1;
         }
 
@@ -1510,6 +1532,14 @@ public class Kcp {
         this.nocwnd = nocwnd;
     }
 
+    public int getRxMinrto() {
+        return rxMinrto;
+    }
+
+    public void setRxMinrto(int rxMinrto) {
+        this.rxMinrto = rxMinrto;
+    }
+
     public int getRcvWnd() {
         return rcvWnd;
     }
@@ -1532,6 +1562,14 @@ public class Kcp {
 
     public void setStream(boolean stream) {
         this.stream = stream;
+    }
+
+    public int getDeadLink() {
+        return deadLink;
+    }
+
+    public void setDeadLink(int deadLink) {
+        this.deadLink = deadLink;
     }
 
     public void setByteBufAllocator(ByteBufAllocator byteBufAllocator) {

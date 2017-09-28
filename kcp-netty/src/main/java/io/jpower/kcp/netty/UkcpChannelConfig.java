@@ -23,6 +23,10 @@ public interface UkcpChannelConfig extends ChannelConfig {
 
     UkcpChannelConfig setNocwnd(boolean nc);
 
+    int getMinRto();
+
+    UkcpChannelConfig setMinRto(int minRto);
+
     int getMtu();
 
     UkcpChannelConfig setMtu(int mtu);
@@ -38,6 +42,10 @@ public interface UkcpChannelConfig extends ChannelConfig {
     boolean isStream();
 
     UkcpChannelConfig setStream(boolean stream);
+
+    int getDeadLink();
+
+    UkcpChannelConfig setDeadLink(int deadLink);
 
     boolean isAutoSetConv();
 

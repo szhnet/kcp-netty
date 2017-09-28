@@ -7,9 +7,10 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 
 /**
+ * Handler implementation for the echo client.
+ *
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
  */
-
 public class EchoClientHandler extends ChannelInboundHandlerAdapter {
 
     private final ByteBuf firstMessage;

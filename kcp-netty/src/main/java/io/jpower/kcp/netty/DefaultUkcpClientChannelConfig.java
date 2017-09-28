@@ -29,8 +29,8 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
     public Map<ChannelOption<?>, Object> getOptions() {
         return getOptions(
                 super.getOptions(),
-                UKCP_NODELAY, UKCP_INTERVAL, UKCP_FAST_RESEND, UKCP_NOCWND, UKCP_MTU, UKCP_RCV_WND, UKCP_SND_WND,
-                UKCP_STREAM, UKCP_AUTO_SET_CONV, UKCP_FAST_FLUSH,
+                UKCP_NODELAY, UKCP_INTERVAL, UKCP_FAST_RESEND, UKCP_NOCWND, UKCP_MIN_RTO, UKCP_MTU, UKCP_RCV_WND,
+                UKCP_SND_WND, UKCP_STREAM, UKCP_DEAD_LINK, UKCP_AUTO_SET_CONV, UKCP_FAST_FLUSH,
                 SO_RCVBUF, SO_SNDBUF, SO_REUSEADDR, IP_TOS);
     }
 
@@ -49,6 +49,9 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
         if (option == UKCP_NOCWND) {
             return (T) Boolean.valueOf(isNocwnd());
         }
+        if (option == UKCP_MIN_RTO) {
+            return (T) Integer.valueOf(getMinRto());
+        }
         if (option == UKCP_MTU) {
             return (T) Integer.valueOf(getMtu());
         }
@@ -60,6 +63,9 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
         }
         if (option == UKCP_STREAM) {
             return (T) Boolean.valueOf(isStream());
+        }
+        if (option == UKCP_DEAD_LINK) {
+            return (T) Integer.valueOf(getDeadLink());
         }
         if (option == UKCP_AUTO_SET_CONV) {
             return (T) Boolean.valueOf(isAutoSetConv());
@@ -95,6 +101,8 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
             setFastResend((Integer) value);
         } else if (option == UKCP_NOCWND) {
             setNocwnd((Boolean) value);
+        } else if (option == UKCP_MIN_RTO) {
+            setMinRto((Integer) value);
         } else if (option == UKCP_MTU) {
             setMtu((Integer) value);
         } else if (option == UKCP_RCV_WND) {
@@ -103,6 +111,8 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
             setSndWnd((Integer) value);
         } else if (option == UKCP_STREAM) {
             setStream((Boolean) value);
+        } else if (option == UKCP_DEAD_LINK) {
+            setDeadLink((Integer) value);
         } else if (option == UKCP_AUTO_SET_CONV) {
             setAutoSetConv((Boolean) value);
         } else if (option == UKCP_FAST_FLUSH) {
@@ -167,6 +177,17 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
     }
 
     @Override
+    public int getMinRto() {
+        return ukcp.getMinRto();
+    }
+
+    @Override
+    public UkcpClientChannelConfig setMinRto(int minRto) {
+        ukcp.setMinRto(minRto);
+        return this;
+    }
+
+    @Override
     public int getMtu() {
         return ukcp.getMtu();
     }
@@ -207,6 +228,17 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
     @Override
     public UkcpClientChannelConfig setStream(boolean stream) {
         ukcp.setStream(stream);
+        return this;
+    }
+
+    @Override
+    public int getDeadLink() {
+        return ukcp.getDeadLink();
+    }
+
+    @Override
+    public UkcpClientChannelConfig setDeadLink(int deadLink) {
+        ukcp.setDeadLink(deadLink);
         return this;
     }
 

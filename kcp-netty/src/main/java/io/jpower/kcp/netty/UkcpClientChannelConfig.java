@@ -21,6 +21,8 @@ public interface UkcpClientChannelConfig extends ChannelConfig, UkcpChannelConfi
 
     UkcpClientChannelConfig setNocwnd(boolean nc);
 
+    UkcpClientChannelConfig setMinRto(int minRto);
+
     UkcpClientChannelConfig setMtu(int mtu);
 
     UkcpClientChannelConfig setRcvWnd(int rcvWnd);
@@ -28,6 +30,8 @@ public interface UkcpClientChannelConfig extends ChannelConfig, UkcpChannelConfi
     UkcpClientChannelConfig setSndWnd(int sndWnd);
 
     UkcpClientChannelConfig setStream(boolean stream);
+
+    UkcpClientChannelConfig setDeadLink(int deadLink);
 
     /**
      * Gets the {@link StandardSocketOptions#SO_RCVBUF} option.

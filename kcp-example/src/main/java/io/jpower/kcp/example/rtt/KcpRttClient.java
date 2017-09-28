@@ -12,6 +12,10 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 
 /**
+ * Measures RTT(Round-trip time) for KCP.
+ * <p>
+ * Sends a message to server and receive a response from server to measure RTT.
+ *
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
  */
 public class KcpRttClient {
