@@ -13,7 +13,7 @@
 
     <name>kcp-example</name>
     <description>
-        example of kcp-netty
+        Examples of kcp-netty
     </description>
 
     <dependencies>

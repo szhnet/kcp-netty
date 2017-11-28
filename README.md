@@ -23,5 +23,5 @@ You can find the examples in the [examples][20] directory.
 [5]: https://img.shields.io/badge/Netty-Powered-blue.svg
 [6]: https://netty.io
 [7]: https://img.shields.io/badge/license-MIT-yellow.svg
-[8]: LICENSE
-[20]: kcp-example/src/main/java/io/jpower/kcp/example 
+[8]: https://github.com/szhnet/kcp-netty/blob/master/LICENSE
+[20]: https://github.com/szhnet/kcp-netty/tree/master/kcp-example/src/main/java/io/jpower/kcp/example

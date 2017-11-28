@@ -287,8 +287,8 @@ public class Ukcp {
     /**
      * Sets the {@link ByteBufAllocator} which is used for the kcp to allocate buffers.
      *
-     * @param allocator
-     * @return
+     * @param allocator the allocator is used for the kcp to allocate buffers
+     * @return this object
      */
     public Ukcp setByteBufAllocator(ByteBufAllocator allocator) {
         kcp.setByteBufAllocator(allocator);

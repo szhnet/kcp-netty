@@ -35,7 +35,7 @@ public class TcpRttClientHandler extends ChannelInboundHandlerAdapter {
      * Creates a client-side handler.
      */
     public TcpRttClientHandler(int count) {
-        data = Unpooled.buffer(KcpRttClient.SIZE);
+        data = Unpooled.buffer(TcpRttClient.SIZE);
         for (int i = 0; i < data.capacity(); i++) {
             data.writeByte((byte) i);
         }
@@ -63,7 +63,7 @@ public class TcpRttClientHandler extends ChannelInboundHandlerAdapter {
                 }
                 ctx.flush();
             }
-        }, KcpRttClient.RTT_INTERVAL, KcpRttClient.RTT_INTERVAL, TimeUnit.MILLISECONDS);
+        }, TcpRttClient.RTT_INTERVAL, TcpRttClient.RTT_INTERVAL, TimeUnit.MILLISECONDS);
     }
 
     /**
