@@ -72,7 +72,6 @@ public class TcpRttClientHandler extends ChannelInboundHandlerAdapter {
      * @param count
      * @return
      */
-
     public ByteBuf rttMsg(int count) {
         ByteBuf buf = Unpooled.buffer(10);
         buf.writeShort(count);

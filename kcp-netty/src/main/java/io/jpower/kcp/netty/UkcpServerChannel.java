@@ -1,6 +1,8 @@
 package io.jpower.kcp.netty;
 
 import io.jpower.kcp.netty.internal.CodecOutputList;
+import io.jpower.kcp.netty.internal.ReItrHashMap;
+import io.jpower.kcp.netty.internal.ReusableIterator;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.channel.nio.AbstractNioMessageChannel;
@@ -19,7 +21,10 @@ import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.spi.SelectorProvider;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -40,9 +45,15 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
 
     private final DefaultUkcpServerChannelConfig config;
 
-    private final Map<SocketAddress, UkcpServerChildChannel> childChannelMap = new HashMap<>();
+    private final ReItrHashMap<SocketAddress, UkcpServerChildChannel> childChannelMap = new ReItrHashMap<>();
 
-    private final Map<SocketAddress, CloseWaitKcp> closeWaitKcpMap = new HashMap<>();
+    private final ReusableIterator<Map.Entry<SocketAddress, UkcpServerChildChannel>> childChannelMapItr =
+            childChannelMap.entrySet().iterator();
+
+    private final ReItrHashMap<SocketAddress, CloseWaitKcp> closeWaitKcpMap = new ReItrHashMap<>();
+
+    private final ReusableIterator<Map.Entry<SocketAddress, CloseWaitKcp>> closeWaitKcpMapItr =
+            closeWaitKcpMap.entrySet().iterator();
 
     private final KcpOutput output = new UkcpServerOutput();
 
@@ -141,7 +152,9 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
             exception = t;
         }
         // close child channel
-        for (UkcpServerChildChannel childCh : childChannelMap.values()) {
+        for (Iterator<Map.Entry<SocketAddress, UkcpServerChildChannel>> itr = childChannelMapItr.rewind(); itr
+                .hasNext(); ) {
+            UkcpServerChildChannel childCh = itr.next().getValue();
             Unsafe childUnsafe = childCh.unsafe();
             try {
                 childUnsafe.close(childUnsafe.voidPromise());
@@ -347,7 +360,9 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
         long current = System.currentTimeMillis();
         long nextTsUpadte = -1;
 
-        for (UkcpServerChildChannel childCh : childChannelMap.values()) {
+        for (Iterator<Map.Entry<SocketAddress, UkcpServerChildChannel>> itr = childChannelMapItr.rewind(); itr
+                .hasNext(); ) {
+            UkcpServerChildChannel childCh = itr.next().getValue();
             if (!childCh.isActive()) {
                 continue;
             }
@@ -392,8 +407,8 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
         }
 
         if (closeWaitKcpMap.size() > 0) {
-            for (Iterator<CloseWaitKcp> iterator = closeWaitKcpMap.values().iterator(); iterator.hasNext(); ) {
-                CloseWaitKcp w = iterator.next();
+            for (Iterator<Map.Entry<SocketAddress, CloseWaitKcp>> itr = closeWaitKcpMapItr.rewind(); itr.hasNext(); ) {
+                CloseWaitKcp w = itr.next().getValue();
                 Ukcp ukcp = w.ukcp;
 
                 long tsUp = ukcp.getTsUpdate();
@@ -404,13 +419,13 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
                         nextTsUp = ukcp.update(current);
                     } catch (Throwable t) {
                         exception = t;
-                        iterator.remove();
+                        itr.remove();
                         ukcp.setKcpClosed();
                         log.error("Terminate closeWaitKcp. ukcp={}, cause={}", ukcp, "update error", t);
                     }
 
                     if (ukcp.getState() == -1 && exception == null) {
-                        iterator.remove();
+                        itr.remove();
                         ukcp.setKcpClosed();
                         nextTsUp = -1;
                         if (log.isDebugEnabled()) {
@@ -641,18 +656,18 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
             scheduleCloseWait = false;
 
             long current = System.currentTimeMillis();
-            for (Iterator<CloseWaitKcp> iterator = closeWaitKcpMap.values().iterator(); iterator.hasNext(); ) {
-                CloseWaitKcp w = iterator.next();
+            for (Iterator<Map.Entry<SocketAddress, CloseWaitKcp>> itr = closeWaitKcpMapItr.rewind(); itr.hasNext(); ) {
+                CloseWaitKcp w = itr.next().getValue();
                 Ukcp ukcp = w.ukcp;
                 if (current >= w.closeTime) {
                     ukcp.setKcpClosed();
-                    iterator.remove();
+                    itr.remove();
                     if (log.isDebugEnabled()) {
                         log.debug("Terminate closeWaitKcp. ukcp={}, cause={}", ukcp, "timeout");
                     }
                 } else if (!ukcp.checkFlush()) {
                     ukcp.setKcpClosed();
-                    iterator.remove();
+                    itr.remove();
                     if (log.isDebugEnabled()) {
                         log.debug("Terminate closeWaitKcp. ukcp={}, cause={}", ukcp, "no flush");
                     }
