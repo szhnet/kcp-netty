@@ -275,7 +275,7 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
 
                 Throwable exception1 = null;
                 int size = readBuf.size();
-                CodecOutputList<ByteBuf> bufList = size > 0 ? CodecOutputList.newInstance() : null;
+                CodecOutputList<ByteBuf> bufList = size > 0 ? CodecOutputList.<ByteBuf>newInstance() : null;
                 try {
                     for (int i = 0; i < size; i++) {
                         ByteBuf byteBuf = (ByteBuf) readBuf.get(i);

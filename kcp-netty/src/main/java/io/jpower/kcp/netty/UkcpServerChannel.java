@@ -519,7 +519,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
                 }
 
                 int size = readBuf.size();
-                CodecOutputList<ByteBuf> bufList = size > 0 ? CodecOutputList.newInstance() : null;
+                CodecOutputList<ByteBuf> bufList = size > 0 ? CodecOutputList.<ByteBuf>newInstance() : null;
                 for (int i = 0; i < size; i++) {
                     Throwable subException = null;
                     UkcpPacket packet = (UkcpPacket) readBuf.get(i);

@@ -50,7 +50,7 @@ public class KcpRttClientHandler extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void channelActive(ChannelHandlerContext ctx) {
+    public void channelActive(final ChannelHandlerContext ctx) {
         UkcpChannel kcpCh = (UkcpChannel) ctx.channel();
         kcpCh.conv(KcpRttClient.CONV); // set conv
 
@@ -99,7 +99,7 @@ public class KcpRttClientHandler extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) {
+    public void channelRead(final ChannelHandlerContext ctx, Object msg) {
         ByteBuf buf = (ByteBuf) msg;
         int curCount = buf.readShort();
 
