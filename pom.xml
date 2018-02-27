@@ -6,7 +6,7 @@
 
     <groupId>io.jpower.kcp</groupId>
     <artifactId>kcp-parent</artifactId>
-    <version>1.3.0</version>
+    <version>1.3.1</version>
     <packaging>pom</packaging>
 
     <name>kcp-netty [Parent]</name>
@@ -136,6 +136,16 @@
 
     <profiles>
         <profile>
+            <id>doclint-java8-disable</id>
+            <activation>
+                <jdk>[1.8,)</jdk>
+            </activation>
+            <properties>
+                <javadoc.opts>-Xdoclint:none</javadoc.opts>
+            </properties>
+        </profile>
+
+        <profile>
             <id>release</id>
             <build>
                 <plugins>
@@ -165,7 +175,7 @@
                                     <goal>jar</goal>
                                 </goals>
                                 <configuration>
-                                    <additionalparam>-Xdoclint:none</additionalparam>
+                                    <additionalparam>${javadoc.opts}</additionalparam>
                                 </configuration>
                             </execution>
                         </executions>
