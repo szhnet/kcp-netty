@@ -1,7 +1,6 @@
 package io.jpower.kcp.netty.internal;
 
 import java.util.*;
-import java.util.function.Consumer;
 
 /**
  * LinkedList with reusable iterator
@@ -10,6 +9,7 @@ import java.util.function.Consumer;
  */
 public class ReItrLinkedList<E> extends AbstractSequentialList<E>
         implements List<E>, Deque<E>, Cloneable, java.io.Serializable {
+
     transient int size = 0;
 
     /**
@@ -769,12 +769,10 @@ public class ReItrLinkedList<E> extends AbstractSequentialList<E>
         return false;
     }
 
-    @Override
     public ReusableIterator<E> iterator() {
         return listIterator();
     }
 
-    @Override
     public ReusableListIterator<E> listIterator() {
         return listIterator(0);
     }
@@ -806,30 +804,29 @@ public class ReItrLinkedList<E> extends AbstractSequentialList<E>
     }
 
     private class ListItr implements ReusableListIterator<E> {
-        private int initIndex;
-        private Node<E> lastReturned;
+        private Node<E> lastReturned = null;
         private Node<E> next;
         private int nextIndex;
         private int expectedModCount = modCount;
 
         ListItr(int index) {
             // assert isPositionIndex(index);
-            initIndex = index;
             next = (index == size) ? null : node(index);
             nextIndex = index;
         }
 
+        @Override
         public ReusableListIterator<E> rewind() {
             return rewind(0);
         }
 
         @Override
         public ReusableListIterator<E> rewind(int index) {
-            initIndex = index;
             lastReturned = null;
-            next = (initIndex == size) ? null : node(initIndex);
-            nextIndex = initIndex;
+            next = (index == size) ? null : node(index);
+            nextIndex = index;
             expectedModCount = modCount;
+
             return this;
         }
 
@@ -903,17 +900,6 @@ public class ReItrLinkedList<E> extends AbstractSequentialList<E>
             expectedModCount++;
         }
 
-        public void forEachRemaining(Consumer<? super E> action) {
-            Objects.requireNonNull(action);
-            while (modCount == expectedModCount && nextIndex < size) {
-                action.accept(next.item);
-                lastReturned = next;
-                next = next.next;
-                nextIndex++;
-            }
-            checkForComodification();
-        }
-
         final void checkForComodification() {
             if (modCount != expectedModCount)
                 throw new ConcurrentModificationException();
@@ -963,15 +949,15 @@ public class ReItrLinkedList<E> extends AbstractSequentialList<E>
         try {
             return (ReItrLinkedList<E>) super.clone();
         } catch (CloneNotSupportedException e) {
-            throw new InternalError(e);
+            throw new InternalError();
         }
     }
 
     /**
-     * Returns a shallow copy of this {@code ReItrLinkedList}. (The elements
+     * Returns a shallow copy of this {@code LinkedList}. (The elements
      * themselves are not cloned.)
      *
-     * @return a shallow copy of this {@code ReItrLinkedList} instance
+     * @return a shallow copy of this {@code LinkedList} instance
      */
     public Object clone() {
         ReItrLinkedList<E> clone = superClone();
@@ -1064,10 +1050,10 @@ public class ReItrLinkedList<E> extends AbstractSequentialList<E>
         return a;
     }
 
-    private static final long serialVersionUID = 8005782933159854211L;
+    private static final long serialVersionUID = 8249177923269915620L;
 
     /**
-     * Saves the state of this {@code ReItrLinkedList} instance to a stream
+     * Saves the state of this {@code LinkedList} instance to a stream
      * (that is, serializes it).
      *
      * @serialData The size of the list (the number of elements it
@@ -1088,7 +1074,7 @@ public class ReItrLinkedList<E> extends AbstractSequentialList<E>
     }
 
     /**
-     * Reconstitutes this {@code ReItrLinkedList} instance from a stream
+     * Reconstitutes this {@code LinkedList} instance from a stream
      * (that is, deserializes it).
      */
     @SuppressWarnings("unchecked")
@@ -1103,121 +1089,6 @@ public class ReItrLinkedList<E> extends AbstractSequentialList<E>
         // Read in all elements in the proper order.
         for (int i = 0; i < size; i++)
             linkLast((E) s.readObject());
-    }
-
-    /**
-     * Creates a <em><a href="Spliterator.html#binding">late-binding</a></em>
-     * and <em>fail-fast</em> {@link Spliterator} over the elements in this
-     * list.
-     * <p>
-     * <p>The {@code Spliterator} reports {@link Spliterator#SIZED} and
-     * {@link Spliterator#ORDERED}.  Overriding implementations should document
-     * the reporting of additional characteristic values.
-     *
-     * @return a {@code Spliterator} over the elements in this list
-     * @implNote The {@code Spliterator} additionally reports {@link Spliterator#SUBSIZED}
-     * and implements {@code trySplit} to permit limited parallelism..
-     * @since 1.8
-     */
-    @Override
-    public Spliterator<E> spliterator() {
-        return new LLSpliterator<E>(this, -1, 0);
-    }
-
-    /**
-     * A customized variant of Spliterators.IteratorSpliterator
-     */
-    static final class LLSpliterator<E> implements Spliterator<E> {
-        static final int BATCH_UNIT = 1 << 10;  // batch array size increment
-        static final int MAX_BATCH = 1 << 25;  // max batch array size;
-        final ReItrLinkedList<E> list; // null OK unless traversed
-        Node<E> current;      // current node; null until initialized
-        int est;              // size estimate; -1 until first needed
-        int expectedModCount; // initialized when est set
-        int batch;            // batch size for splits
-
-        LLSpliterator(ReItrLinkedList<E> list, int est, int expectedModCount) {
-            this.list = list;
-            this.est = est;
-            this.expectedModCount = expectedModCount;
-        }
-
-        final int getEst() {
-            int s; // force initialization
-            final ReItrLinkedList<E> lst;
-            if ((s = est) < 0) {
-                if ((lst = list) == null)
-                    s = est = 0;
-                else {
-                    expectedModCount = lst.modCount;
-                    current = lst.first;
-                    s = est = lst.size;
-                }
-            }
-            return s;
-        }
-
-        public long estimateSize() {
-            return (long) getEst();
-        }
-
-        public Spliterator<E> trySplit() {
-            Node<E> p;
-            int s = getEst();
-            if (s > 1 && (p = current) != null) {
-                int n = batch + BATCH_UNIT;
-                if (n > s)
-                    n = s;
-                if (n > MAX_BATCH)
-                    n = MAX_BATCH;
-                Object[] a = new Object[n];
-                int j = 0;
-                do {
-                    a[j++] = p.item;
-                } while ((p = p.next) != null && j < n);
-                current = p;
-                batch = j;
-                est = s - j;
-                return Spliterators.spliterator(a, 0, j, Spliterator.ORDERED);
-            }
-            return null;
-        }
-
-        public void forEachRemaining(Consumer<? super E> action) {
-            Node<E> p;
-            int n;
-            if (action == null) throw new NullPointerException();
-            if ((n = getEst()) > 0 && (p = current) != null) {
-                current = null;
-                est = 0;
-                do {
-                    E e = p.item;
-                    p = p.next;
-                    action.accept(e);
-                } while (p != null && --n > 0);
-            }
-            if (list.modCount != expectedModCount)
-                throw new ConcurrentModificationException();
-        }
-
-        public boolean tryAdvance(Consumer<? super E> action) {
-            Node<E> p;
-            if (action == null) throw new NullPointerException();
-            if (getEst() > 0 && (p = current) != null) {
-                --est;
-                E e = p.item;
-                current = p.next;
-                action.accept(e);
-                if (list.modCount != expectedModCount)
-                    throw new ConcurrentModificationException();
-                return true;
-            }
-            return false;
-        }
-
-        public int characteristics() {
-            return Spliterator.ORDERED | Spliterator.SIZED | Spliterator.SUBSIZED;
-        }
     }
 
 }
