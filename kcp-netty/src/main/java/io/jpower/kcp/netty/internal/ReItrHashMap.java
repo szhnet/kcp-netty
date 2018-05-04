@@ -118,13 +118,6 @@ public class ReItrHashMap<K, V> extends AbstractMap<K, V>
     }
 
     /**
-     * A randomizing value associated with this instance that is applied to
-     * hash code of keys to make hash collisions harder to find. If 0 then
-     * alternative hashing is disabled.
-     */
-    transient int hashSeed = 0;
-
-    /**
      * Constructs an empty <tt>HashMap</tt> with the specified initial
      * capacity and load factor.
      *
@@ -200,7 +193,6 @@ public class ReItrHashMap<K, V> extends AbstractMap<K, V>
 
         threshold = (int) Math.min(capacity * loadFactor, MAXIMUM_CAPACITY + 1);
         table = new Entry[capacity];
-        initHashSeedAsNeeded(capacity);
     }
 
     // internal utilities
@@ -216,23 +208,6 @@ public class ReItrHashMap<K, V> extends AbstractMap<K, V>
     }
 
     /**
-     * Initialize the hashing mask value. We defer initialization until we
-     * really need it.
-     */
-    final boolean initHashSeedAsNeeded(int capacity) {
-        boolean currentAltHashing = hashSeed != 0;
-        boolean useAltHashing = sun.misc.VM.isBooted() &&
-                (capacity >= Holder.ALTERNATIVE_HASHING_THRESHOLD);
-        boolean switching = currentAltHashing ^ useAltHashing;
-        if (switching) {
-            hashSeed = useAltHashing
-                    ? sun.misc.Hashing.randomHashSeed(this)
-                    : 0;
-        }
-        return switching;
-    }
-
-    /**
      * Retrieve object hash code and applies a supplemental hash function to the
      * result hash, which defends against poor quality hash functions.  This is
      * critical because HashMap uses power-of-two length hash tables, that
@@ -240,12 +215,7 @@ public class ReItrHashMap<K, V> extends AbstractMap<K, V>
      * in lower bits. Note: Null keys always map to hash 0, thus index 0.
      */
     final int hash(Object k) {
-        int h = hashSeed;
-        if (0 != h && k instanceof String) {
-            return sun.misc.Hashing.stringHash32((String) k);
-        }
-
-        h ^= k.hashCode();
+        int h = k.hashCode();
 
         // This function ensures that hashCodes that differ only by
         // constant multiples at each bit position have a bounded
@@ -464,7 +434,7 @@ public class ReItrHashMap<K, V> extends AbstractMap<K, V>
         }
 
         Entry[] newTable = new Entry[newCapacity];
-        transfer(newTable, initHashSeedAsNeeded(newCapacity));
+        transfer(newTable);
         table = newTable;
         threshold = (int) Math.min(newCapacity * loadFactor, MAXIMUM_CAPACITY + 1);
     }
@@ -472,14 +442,11 @@ public class ReItrHashMap<K, V> extends AbstractMap<K, V>
     /**
      * Transfers all entries from current table to newTable.
      */
-    void transfer(Entry[] newTable, boolean rehash) {
+    void transfer(Entry[] newTable) {
         int newCapacity = newTable.length;
         for (Entry<K, V> e : table) {
             while (null != e) {
                 Entry<K, V> next = e.next;
-                if (rehash) {
-                    e.hash = null == e.key ? 0 : hash(e.key);
-                }
                 int i = indexFor(e.hash, newCapacity);
                 e.next = newTable[i];
                 newTable[i] = e;
