@@ -283,7 +283,7 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
                         ukcpChannel.kcpInput(byteBuf);
                         ukcpChannel.kcpTsUpdate(-1); // update kcp
 
-                        if (ukcpChannel.kcpCanRecv()) {
+                        while (ukcpChannel.kcpCanRecv()) {
                             ukcpChannel.kcpReceive(bufList);
                         }
                     }

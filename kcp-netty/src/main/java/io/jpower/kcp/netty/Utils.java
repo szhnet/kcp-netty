@@ -22,6 +22,9 @@ class Utils {
     static void fireChannelRead(Channel ch, CodecOutputList<ByteBuf> bufList) {
         ChannelPipeline childPipeline = ch.pipeline();
         int size = bufList.size();
+        if (size <= 0) {
+            return;
+        }
         for (int i = 0; i < size; i++) {
             ByteBuf msg = bufList.getUnsafe(i);
             childPipeline.fireChannelRead(msg);

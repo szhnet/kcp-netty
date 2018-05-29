@@ -533,7 +533,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
                             ukcp.input(byteBuf);
                             ukcp.setTsUpdate(-1); // update kcp
 
-                            if (ukcp.canRecv()) {
+                            while (ukcp.canRecv()) {
                                 ukcp.receive(bufList);
                             }
                         } catch (Throwable t) {
@@ -542,6 +542,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
                             packet.release();
                         }
                         clearAndRelease(bufList);
+
                         if (subException != null) {
                             closeWaitKcpMap.remove(remoteAddress);
                             ukcp.setKcpClosed();
@@ -558,7 +559,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
                             childCh.kcpInput(byteBuf);
                             childCh.kcpTsUpdate(-1); // update kcp
 
-                            if (childCh.kcpCanRecv()) {
+                            while (childCh.kcpCanRecv()) {
                                 childCh.kcpReceive(bufList);
                             }
                         } catch (Throwable t) {
@@ -568,6 +569,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
                         }
                         Utils.fireChannelRead(childCh, bufList);
                         bufList.clear();
+
                         if (subException != null) {
                             Utils.fireExceptionAndClose(childCh, subException, true);
                         }
