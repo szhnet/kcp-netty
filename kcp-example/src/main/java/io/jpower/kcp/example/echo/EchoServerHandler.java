@@ -3,8 +3,6 @@ package io.jpower.kcp.example.echo;
 import io.jpower.kcp.netty.UkcpChannel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Handler implementation for the echo server.

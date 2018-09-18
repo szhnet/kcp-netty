@@ -1,5 +1,10 @@
 package io.jpower.kcp.example.rtt;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
 import io.jpower.kcp.netty.UkcpChannel;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -7,11 +12,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>

@@ -1,11 +1,11 @@
 package io.jpower.kcp.netty;
 
+import java.net.InetSocketAddress;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.Recycler;
 import io.netty.util.ReferenceCounted;
-
-import java.net.InetSocketAddress;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>

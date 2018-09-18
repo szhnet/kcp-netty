@@ -1,13 +1,13 @@
 package io.jpower.kcp.netty;
 
+import java.io.IOException;
+import java.util.List;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
-
-import java.io.IOException;
-import java.util.List;
 
 /**
  * Wrapper for kcp
@@ -21,6 +21,8 @@ public class Ukcp {
     private Kcp kcp;
 
     private boolean fastFlush = true;
+
+    private boolean mergeSegmentBuf = true;
 
     private long tsUpdate = -1;
 
@@ -36,6 +38,22 @@ public class Ukcp {
         Kcp kcp = new Kcp(conv, output);
         this.kcp = kcp;
         this.active = true;
+    }
+
+    /**
+     * Receives ByteBufs.
+     *
+     * @param buf
+     * @throws IOException
+     */
+    public void receive(ByteBuf buf) throws IOException {
+        int ret = kcp.recv(buf);
+        switch (ret) {
+            case -3:
+                throw new IOException("Received Data exceeds maxCapacity of buf");
+            default:
+                break;
+        }
     }
 
     /**
@@ -337,6 +355,15 @@ public class Ukcp {
 
     public Ukcp setFastFlush(boolean fastFlush) {
         this.fastFlush = fastFlush;
+        return this;
+    }
+
+    public boolean isMergeSegmentBuf() {
+        return mergeSegmentBuf;
+    }
+
+    public Ukcp setMergeSegmentBuf(boolean mergeSegmentBuf) {
+        this.mergeSegmentBuf = mergeSegmentBuf;
         return this;
     }
 

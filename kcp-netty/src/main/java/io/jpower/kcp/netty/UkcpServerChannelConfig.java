@@ -1,12 +1,12 @@
 package io.jpower.kcp.netty;
 
+import java.net.StandardSocketOptions;
+
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.ChannelConfig;
 import io.netty.channel.MessageSizeEstimator;
 import io.netty.channel.RecvByteBufAllocator;
 import io.netty.channel.WriteBufferWaterMark;
-
-import java.net.StandardSocketOptions;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>

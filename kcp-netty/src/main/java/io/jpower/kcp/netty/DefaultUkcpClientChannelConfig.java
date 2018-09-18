@@ -1,14 +1,36 @@
 package io.jpower.kcp.netty;
 
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.*;
+import static io.jpower.kcp.netty.UkcpChannelOption.IP_TOS;
+import static io.jpower.kcp.netty.UkcpChannelOption.SO_RCVBUF;
+import static io.jpower.kcp.netty.UkcpChannelOption.SO_REUSEADDR;
+import static io.jpower.kcp.netty.UkcpChannelOption.SO_SNDBUF;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_AUTO_SET_CONV;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_DEAD_LINK;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_FAST_FLUSH;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_FAST_RESEND;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_INTERVAL;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_MERGE_SEGMENT_BUF;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_MIN_RTO;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_MTU;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_NOCWND;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_NODELAY;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_RCV_WND;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_SND_WND;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_STREAM;
 
 import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.util.Map;
 import java.util.Objects;
 
-import static io.jpower.kcp.netty.UkcpChannelOption.*;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.channel.ChannelException;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.DefaultChannelConfig;
+import io.netty.channel.FixedRecvByteBufAllocator;
+import io.netty.channel.MessageSizeEstimator;
+import io.netty.channel.RecvByteBufAllocator;
+import io.netty.channel.WriteBufferWaterMark;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
@@ -19,7 +41,7 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
     private final DatagramSocket javaSocket;
 
     public DefaultUkcpClientChannelConfig(UkcpClientChannel channel, Ukcp ukcp, DatagramSocket javaSocket) {
-        super(channel, new FixedRecvByteBufAllocator(Consts.FIXED_RECV_BYTEBUF_ALLOCATOR_SIZE));
+        super(channel, new FixedRecvByteBufAllocator(Consts.FIXED_RECV_BYTEBUF_ALLOCATE_SIZE));
         this.ukcp = Objects.requireNonNull(ukcp, "ukcp");
         this.javaSocket = Objects.requireNonNull(javaSocket, "javaSocket");
     }
@@ -30,7 +52,7 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
         return getOptions(
                 super.getOptions(),
                 UKCP_NODELAY, UKCP_INTERVAL, UKCP_FAST_RESEND, UKCP_NOCWND, UKCP_MIN_RTO, UKCP_MTU, UKCP_RCV_WND,
-                UKCP_SND_WND, UKCP_STREAM, UKCP_DEAD_LINK, UKCP_AUTO_SET_CONV, UKCP_FAST_FLUSH,
+                UKCP_SND_WND, UKCP_STREAM, UKCP_DEAD_LINK, UKCP_AUTO_SET_CONV, UKCP_FAST_FLUSH, UKCP_MERGE_SEGMENT_BUF,
                 SO_RCVBUF, SO_SNDBUF, SO_REUSEADDR, IP_TOS);
     }
 
@@ -72,6 +94,9 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
         }
         if (option == UKCP_FAST_FLUSH) {
             return (T) Boolean.valueOf(isFastFlush());
+        }
+        if (option == UKCP_MERGE_SEGMENT_BUF) {
+            return (T) Boolean.valueOf(isMergeSegmentBuf());
         }
         if (option == SO_RCVBUF) {
             return (T) Integer.valueOf(getUdpReceiveBufferSize());
@@ -117,6 +142,8 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
             setAutoSetConv((Boolean) value);
         } else if (option == UKCP_FAST_FLUSH) {
             setFastFlush((Boolean) value);
+        } else if (option == UKCP_MERGE_SEGMENT_BUF) {
+            setMergeSegmentBuf((Boolean) value);
         } else if (option == SO_RCVBUF) {
             setUdpReceiveBufferSize((Integer) value);
         } else if (option == SO_SNDBUF) {
@@ -261,6 +288,17 @@ public class DefaultUkcpClientChannelConfig extends DefaultChannelConfig impleme
     @Override
     public UkcpChannelConfig setFastFlush(boolean fastFlush) {
         ukcp.setFastFlush(fastFlush);
+        return this;
+    }
+
+    @Override
+    public boolean isMergeSegmentBuf() {
+        return ukcp.isMergeSegmentBuf();
+    }
+
+    @Override
+    public UkcpChannelConfig setMergeSegmentBuf(boolean mergeSegmentBuf) {
+        ukcp.setMergeSegmentBuf(mergeSegmentBuf);
         return this;
     }
 

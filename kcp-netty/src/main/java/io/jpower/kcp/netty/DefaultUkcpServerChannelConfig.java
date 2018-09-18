@@ -1,14 +1,23 @@
 package io.jpower.kcp.netty;
 
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.*;
+import static io.netty.channel.ChannelOption.IP_TOS;
+import static io.netty.channel.ChannelOption.SO_RCVBUF;
+import static io.netty.channel.ChannelOption.SO_REUSEADDR;
+import static io.netty.channel.ChannelOption.SO_SNDBUF;
 
 import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.util.Map;
 import java.util.Objects;
 
-import static io.netty.channel.ChannelOption.*;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.channel.ChannelException;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.DefaultChannelConfig;
+import io.netty.channel.FixedRecvByteBufAllocator;
+import io.netty.channel.MessageSizeEstimator;
+import io.netty.channel.RecvByteBufAllocator;
+import io.netty.channel.WriteBufferWaterMark;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
@@ -18,7 +27,7 @@ public class DefaultUkcpServerChannelConfig extends DefaultChannelConfig impleme
     private final DatagramSocket javaSocket;
 
     public DefaultUkcpServerChannelConfig(UkcpServerChannel channel, DatagramSocket javaSocket) {
-        super(channel, new FixedRecvByteBufAllocator(Consts.FIXED_RECV_BYTEBUF_ALLOCATOR_SIZE));
+        super(channel, new FixedRecvByteBufAllocator(Consts.FIXED_RECV_BYTEBUF_ALLOCATE_SIZE));
         this.javaSocket = Objects.requireNonNull(javaSocket, "javaSocket");
     }
 

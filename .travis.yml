@@ -1,8 +1,8 @@
 language: java
 
 jdk:
-  - openjdk7
+- openjdk7
 
 notifications:
   email:
-      - szhnet@gmail.com
+  - szhnet@gmail.com

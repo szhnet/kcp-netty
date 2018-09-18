@@ -1,11 +1,11 @@
 package io.jpower.kcp.netty.internal;
 
-import io.netty.util.Recycler;
+import static io.netty.util.internal.ObjectUtil.checkNotNull;
 
 import java.util.AbstractList;
 import java.util.RandomAccess;
 
-import static io.netty.util.internal.ObjectUtil.checkNotNull;
+import io.netty.util.Recycler;
 
 /**
  * Special {@link AbstractList} implementation which is used within our codec base classes.

@@ -1,5 +1,10 @@
 package io.jpower.kcp.netty;
 
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
+
 import io.jpower.kcp.netty.internal.ReItrLinkedList;
 import io.jpower.kcp.netty.internal.ReusableListIterator;
 import io.netty.buffer.ByteBuf;
@@ -7,11 +12,6 @@ import io.netty.buffer.ByteBufAllocator;
 import io.netty.util.Recycler;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
-
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.ListIterator;
 
 /**
  * Java implementation of <a href="https://github.com/skywind3000/kcp">KCP</a>
@@ -359,7 +359,6 @@ public class Kcp {
         }
 
         // merge fragment
-        int count = 0;
         int len = 0;
         for (Iterator<Segment> itr = rcvQueueItr.rewind(); itr.hasNext(); ) {
             Segment seg = itr.next();
@@ -412,7 +411,6 @@ public class Kcp {
         }
 
         // merge fragment
-        int count = 0;
         int len = 0;
         for (Iterator<Segment> itr = rcvQueueItr.rewind(); itr.hasNext(); ) {
             Segment seg = itr.next();
@@ -1202,7 +1200,7 @@ public class Kcp {
         // flush data segments
         int change = 0;
         boolean lost = false;
-        for (Iterator<Segment> itr = sndBufItr.rewind(); itr.hasNext();) {
+        for (Iterator<Segment> itr = sndBufItr.rewind(); itr.hasNext(); ) {
             Segment segment = itr.next();
             boolean needsend = false;
             if (segment.xmit == 0) {
@@ -1374,7 +1372,7 @@ public class Kcp {
         int tmFlush = itimediff(tsFlush, current);
         int tmPacket = Integer.MAX_VALUE;
 
-        for (Iterator<Segment> itr = sndBufItr.rewind(); itr.hasNext();) {
+        for (Iterator<Segment> itr = sndBufItr.rewind(); itr.hasNext(); ) {
             Segment seg = itr.next();
             int diff = itimediff(seg.resendts, current);
             if (diff <= 0) {

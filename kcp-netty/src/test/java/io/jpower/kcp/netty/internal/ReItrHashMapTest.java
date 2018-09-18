@@ -1,11 +1,13 @@
 package io.jpower.kcp.netty.internal;
 
-import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-import static org.junit.Assert.*;
+import org.junit.Test;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>

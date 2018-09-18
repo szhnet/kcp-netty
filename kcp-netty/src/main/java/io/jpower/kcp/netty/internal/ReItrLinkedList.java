@@ -1,6 +1,13 @@
 package io.jpower.kcp.netty.internal;
 
-import java.util.*;
+import java.util.AbstractSequentialList;
+import java.util.Collection;
+import java.util.ConcurrentModificationException;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Queue;
 
 /**
  * LinkedList with reusable iterator

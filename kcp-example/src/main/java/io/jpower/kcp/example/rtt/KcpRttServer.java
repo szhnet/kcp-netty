@@ -1,6 +1,5 @@
 package io.jpower.kcp.example.rtt;
 
-import io.jpower.kcp.example.echo.EchoServerHandler;
 import io.jpower.kcp.netty.ChannelOptionHelper;
 import io.jpower.kcp.netty.UkcpChannel;
 import io.jpower.kcp.netty.UkcpChannelOption;

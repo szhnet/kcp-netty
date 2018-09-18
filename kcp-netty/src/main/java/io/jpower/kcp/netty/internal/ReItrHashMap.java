@@ -3,7 +3,17 @@ package io.jpower.kcp.netty.internal;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.io.Serializable;
-import java.util.*;
+import java.util.AbstractCollection;
+import java.util.AbstractMap;
+import java.util.AbstractSet;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>

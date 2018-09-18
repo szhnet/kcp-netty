@@ -1,17 +1,23 @@
 package io.jpower.kcp.netty;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.*;
-import io.netty.channel.nio.NioEventLoop;
-import io.netty.util.internal.StringUtil;
-import io.netty.util.internal.logging.InternalLogger;
-import io.netty.util.internal.logging.InternalLoggerFactory;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.AbstractChannel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelMetadata;
+import io.netty.channel.ChannelOutboundBuffer;
+import io.netty.channel.ChannelPromise;
+import io.netty.channel.EventLoop;
+import io.netty.channel.nio.NioEventLoop;
+import io.netty.util.internal.StringUtil;
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
@@ -215,6 +221,10 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
     public UkcpClientChannel conv(int conv) {
         ukcp.setConv(conv);
         return this;
+    }
+
+    void kcpReceive(ByteBuf buf) throws IOException {
+        ukcp.receive(buf);
     }
 
     void kcpReceive(List<ByteBuf> bufList) {

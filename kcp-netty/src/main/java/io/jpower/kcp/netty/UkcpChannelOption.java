@@ -43,6 +43,9 @@ public final class UkcpChannelOption<T> extends ChannelOption<T> {
     public static final ChannelOption<Boolean> UKCP_FAST_FLUSH =
             valueOf(UkcpChannelOption.class, "UKCP_FAST_FLUSH");
 
+    public static final ChannelOption<Boolean> UKCP_MERGE_SEGMENT_BUF =
+            valueOf(UkcpChannelOption.class, "UKCP_MERGE_SEGMENT_BUF");
+
     @SuppressWarnings("deprecation")
     private UkcpChannelOption() {
         super(null);

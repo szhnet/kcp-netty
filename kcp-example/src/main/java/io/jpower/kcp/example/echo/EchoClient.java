@@ -5,7 +5,10 @@ import io.jpower.kcp.netty.UkcpChannel;
 import io.jpower.kcp.netty.UkcpChannelOption;
 import io.jpower.kcp.netty.UkcpClientChannel;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.*;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 
 /**

@@ -1,11 +1,11 @@
 package io.netty.bootstrap;
 
+import java.util.Map;
+
 import io.jpower.kcp.netty.UkcpServerChannel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelOption;
 import io.netty.util.AttributeKey;
-
-import java.util.Map;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>

@@ -1,8 +1,8 @@
 package io.jpower.kcp.netty;
 
-import io.netty.channel.Channel;
-
 import java.net.InetSocketAddress;
+
+import io.netty.channel.Channel;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>

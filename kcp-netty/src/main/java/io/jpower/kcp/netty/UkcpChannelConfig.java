@@ -55,4 +55,8 @@ public interface UkcpChannelConfig extends ChannelConfig {
 
     UkcpChannelConfig setFastFlush(boolean fastFlush);
 
+    boolean isMergeSegmentBuf();
+
+    UkcpChannelConfig setMergeSegmentBuf(boolean mergeSegmentBuf);
+
 }

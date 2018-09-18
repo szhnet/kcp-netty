@@ -1,16 +1,5 @@
 package io.jpower.kcp.netty;
 
-import io.jpower.kcp.netty.internal.CodecOutputList;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.*;
-import io.netty.channel.nio.AbstractNioMessageChannel;
-import io.netty.util.ReferenceCountUtil;
-import io.netty.util.internal.PlatformDependent;
-import io.netty.util.internal.SocketUtils;
-import io.netty.util.internal.StringUtil;
-import io.netty.util.internal.logging.InternalLogger;
-import io.netty.util.internal.logging.InternalLoggerFactory;
-
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
@@ -19,6 +8,23 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.spi.SelectorProvider;
 import java.util.ArrayList;
 import java.util.List;
+
+import io.jpower.kcp.netty.internal.CodecOutputList;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.channel.ChannelConfig;
+import io.netty.channel.ChannelException;
+import io.netty.channel.ChannelMetadata;
+import io.netty.channel.ChannelOutboundBuffer;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.RecvByteBufAllocator;
+import io.netty.channel.nio.AbstractNioMessageChannel;
+import io.netty.util.ReferenceCountUtil;
+import io.netty.util.internal.PlatformDependent;
+import io.netty.util.internal.SocketUtils;
+import io.netty.util.internal.StringUtil;
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
@@ -250,6 +256,7 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
             assert eventLoop().inEventLoop();
             final ChannelConfig config = config();
             final ChannelPipeline pipeline = pipeline();
+            final ChannelPipeline ukcpPipeline = ukcpChannel.pipeline();
             final RecvByteBufAllocator.Handle allocHandle = recvBufAllocHandle();
             allocHandle.reset(config);
 
@@ -274,39 +281,72 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
                 }
 
                 Throwable exception1 = null;
-                int size = readBuf.size();
-                CodecOutputList<ByteBuf> bufList = size > 0 ? CodecOutputList.<ByteBuf>newInstance() : null;
+                int readBufSize = readBuf.size();
                 try {
-                    for (int i = 0; i < size; i++) {
+                    for (int i = 0; i < readBufSize; i++) {
                         ByteBuf byteBuf = (ByteBuf) readBuf.get(i);
 
                         ukcpChannel.kcpInput(byteBuf);
+                    }
+                    if (readBufSize > 0) {
                         ukcpChannel.kcpTsUpdate(-1); // update kcp
-
-                        while (ukcpChannel.kcpCanRecv()) {
-                            ukcpChannel.kcpReceive(bufList);
-                        }
                     }
                 } catch (Throwable t) {
                     exception1 = t;
                 }
-                if (bufList != null) {
-                    Utils.fireChannelRead(ukcpChannel, bufList);
-                    bufList.recycle();
+
+                if (exception1 == null) {
+                    boolean mergeSegmentBuf = ukcpChannel.config().isMergeSegmentBuf();
+                    CodecOutputList<ByteBuf> recvBufList = null;
+                    boolean recv = false;
+                    try {
+                        if (mergeSegmentBuf) {
+                            ByteBufAllocator allocator = config.getAllocator();
+                            int peekSize;
+                            while ((peekSize = ukcpChannel.kcpPeekSize()) >= 0) {
+                                recv = true;
+                                ByteBuf recvBuf = allocator.ioBuffer(peekSize);
+                                ukcpChannel.kcpReceive(recvBuf);
+
+                                ukcpPipeline.fireChannelRead(recvBuf);
+                            }
+                        } else {
+                            while (ukcpChannel.kcpCanRecv()) {
+                                recv = true;
+                                if (recvBufList == null) {
+                                    recvBufList = CodecOutputList.<ByteBuf>newInstance();
+                                }
+                                ukcpChannel.kcpReceive(recvBufList);
+                            }
+                        }
+                    } catch (Throwable t) {
+                        exception1 = t;
+                    }
+
+                    if (recv) {
+                        if (mergeSegmentBuf) {
+                            ukcpPipeline.fireChannelReadComplete();
+                        } else {
+                            Utils.fireChannelRead(ukcpChannel, recvBufList);
+                            recvBufList.recycle();
+                        }
+                    }
+
+                    clearAndReleaseReadBuf();
+                    allocHandle.readComplete();
                 }
-                clearAndReleaseReadBuf();
-                allocHandle.readComplete();
+
 
                 if (exception != null) {
                     closed = closeOnReadError(exception);
 
-                    pipeline.fireExceptionCaught(exception);
+                    ukcpPipeline.fireExceptionCaught(exception);
                 }
 
                 if (exception1 != null) {
                     closed = true;
 
-                    pipeline.fireExceptionCaught(exception1);
+                    ukcpPipeline.fireExceptionCaught(exception1);
                 }
 
                 if (closed) {
