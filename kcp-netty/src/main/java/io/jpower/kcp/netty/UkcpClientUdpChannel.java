@@ -331,11 +331,10 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
                             recvBufList.recycle();
                         }
                     }
-
-                    clearAndReleaseReadBuf();
-                    allocHandle.readComplete();
                 }
 
+                clearAndReleaseReadBuf();
+                allocHandle.readComplete();
 
                 if (exception != null) {
                     closed = closeOnReadError(exception);
