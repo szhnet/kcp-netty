@@ -22,6 +22,9 @@ public class Kcp {
 
     private static final InternalLogger log = InternalLoggerFactory.getInstance(Kcp.class);
 
+    private static final InternalLogger kcpMonitorLog = InternalLoggerFactory.getInstance("io.jpower.kcp.netty" +
+            ".kcpMonitor");
+
     /**
      * no delay min rto
      */
@@ -114,7 +117,7 @@ public class Kcp {
 
     private int ssthresh = IKCP_THRESH_INIT;
 
-    private int rxRttval;
+    private int rxRttvar;
 
     private int rxSrtt;
 
@@ -139,6 +142,8 @@ public class Kcp {
     private long tsFlush = IKCP_INTERVAL;
 
     private int xmit;
+
+    private int maxSegXmit;
 
     private boolean nodelay;
 
@@ -614,19 +619,19 @@ public class Kcp {
     private void updateAck(int rtt) {
         if (rxSrtt == 0) {
             rxSrtt = rtt;
-            rxRttval = rtt / 2;
+            rxRttvar = rtt / 2;
         } else {
             int delta = rtt - rxSrtt;
             if (delta < 0) {
                 delta = -delta;
             }
-            rxRttval = (3 * rxRttval + delta) / 4;
+            rxRttvar = (3 * rxRttvar + delta) / 4;
             rxSrtt = (7 * rxSrtt + rtt) / 8;
             if (rxSrtt < 1) {
                 rxSrtt = 1;
             }
         }
-        int rto = rxSrtt + Math.max(interval, 4 * rxRttval);
+        int rto = rxSrtt + Math.max(interval, 4 * rxRttvar);
         rxRto = ibound(rxMinrto, rto, IKCP_RTO_MAX);
     }
 
@@ -1207,7 +1212,7 @@ public class Kcp {
             boolean needsend = false;
             if (segment.xmit == 0) {
                 needsend = true;
-                segment.xmit++;
+                incrXmit(segment);
                 segment.rto = rxRto;
                 segment.resendts = current + segment.rto + rtomin;
                 if (log.isDebugEnabled()) {
@@ -1215,8 +1220,9 @@ public class Kcp {
                 }
             } else if (itimediff(current, segment.resendts) >= 0) {
                 needsend = true;
-                segment.xmit++;
+                incrXmit(segment);
                 xmit++;
+                segment.fastack = 0;
                 if (!nodelay) {
                     segment.rto += rxRto;
                 } else {
@@ -1230,7 +1236,7 @@ public class Kcp {
                 }
             } else if (segment.fastack >= resent) {
                 needsend = true;
-                segment.xmit++;
+                incrXmit(segment);
                 segment.fastack = 0;
                 segment.resendts = current + segment.rto;
                 change++;
@@ -1407,6 +1413,19 @@ public class Kcp {
             return true;
         }
         return false;
+    }
+
+    private void incrXmit(Segment seg) {
+        if (++seg.xmit > maxSegXmit) {
+            maxSegXmit = seg.xmit;
+        }
+    }
+
+    public void logMonitor() {
+        if (kcpMonitorLog.isDebugEnabled()) {
+            kcpMonitorLog.debug("{} srtt={}, rttvar={}, rto={}, sndNxt={}, sndUna={}, rcvNxt={}, cwnd={}, xmit={}, maxSegXmit={}",
+                    this, rxSrtt, rxRttvar, rxRto, sndNxt, sndUna, rcvNxt, cwnd, xmit, maxSegXmit);
+        }
     }
 
     public int getMtu() {
