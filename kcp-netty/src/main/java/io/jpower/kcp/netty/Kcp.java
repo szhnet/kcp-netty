@@ -800,7 +800,7 @@ public class Kcp {
             una = data.readUnsignedIntLE();
             len = data.readIntLE();
 
-            if (data.readableBytes() < len) {
+            if (data.readableBytes() < len || len < 0) {
                 return -2;
             }
 
@@ -956,7 +956,7 @@ public class Kcp {
             una = data.readUnsignedIntLE();
             len = data.readIntLE();
 
-            if (data.readableBytes() < len) {
+            if (data.readableBytes() < len || len < 0) {
                 return -2;
             }
 
