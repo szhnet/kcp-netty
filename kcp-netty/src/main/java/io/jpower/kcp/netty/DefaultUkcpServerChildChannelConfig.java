@@ -3,6 +3,7 @@ package io.jpower.kcp.netty;
 import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_AUTO_SET_CONV;
 import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_DEAD_LINK;
 import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_FAST_FLUSH;
+import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_FAST_LIMIT;
 import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_FAST_RESEND;
 import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_INTERVAL;
 import static io.jpower.kcp.netty.UkcpChannelOption.UKCP_MERGE_SEGMENT_BUF;
@@ -42,8 +43,9 @@ public class DefaultUkcpServerChildChannelConfig extends DefaultChannelConfig im
     public Map<ChannelOption<?>, Object> getOptions() {
         return getOptions(
                 super.getOptions(),
-                UKCP_NODELAY, UKCP_INTERVAL, UKCP_FAST_RESEND, UKCP_NOCWND, UKCP_MIN_RTO, UKCP_MTU, UKCP_RCV_WND,
-                UKCP_SND_WND, UKCP_STREAM, UKCP_DEAD_LINK, UKCP_AUTO_SET_CONV, UKCP_FAST_FLUSH, UKCP_MERGE_SEGMENT_BUF);
+                UKCP_NODELAY, UKCP_INTERVAL, UKCP_FAST_RESEND, UKCP_FAST_LIMIT, UKCP_NOCWND, UKCP_MIN_RTO, UKCP_MTU,
+                UKCP_RCV_WND, UKCP_SND_WND, UKCP_STREAM, UKCP_DEAD_LINK, UKCP_AUTO_SET_CONV, UKCP_FAST_FLUSH,
+                UKCP_MERGE_SEGMENT_BUF);
     }
 
     @Override
@@ -57,6 +59,9 @@ public class DefaultUkcpServerChildChannelConfig extends DefaultChannelConfig im
         }
         if (option == UKCP_FAST_RESEND) {
             return (T) Integer.valueOf(getFastResend());
+        }
+        if (option == UKCP_FAST_LIMIT) {
+            return (T) Integer.valueOf(getFastLimit());
         }
         if (option == UKCP_NOCWND) {
             return (T) Boolean.valueOf(isNocwnd());
@@ -102,6 +107,8 @@ public class DefaultUkcpServerChildChannelConfig extends DefaultChannelConfig im
             setInterval((Integer) value);
         } else if (option == UKCP_FAST_RESEND) {
             setFastResend((Integer) value);
+        } else if (option == UKCP_FAST_LIMIT) {
+            setFastLimit((Integer) value);
         } else if (option == UKCP_NOCWND) {
             setNocwnd((Boolean) value);
         } else if (option == UKCP_MIN_RTO) {
@@ -159,6 +166,17 @@ public class DefaultUkcpServerChildChannelConfig extends DefaultChannelConfig im
     @Override
     public UkcpChannelConfig setFastResend(int fastResend) {
         ukcp.setFastResend(fastResend);
+        return this;
+    }
+
+    @Override
+    public int getFastLimit() {
+        return ukcp.getFastLimit();
+    }
+
+    @Override
+    public UkcpChannelConfig setFastLimit(int fastLimit) {
+        ukcp.setFastLimit(fastLimit);
         return this;
     }
 

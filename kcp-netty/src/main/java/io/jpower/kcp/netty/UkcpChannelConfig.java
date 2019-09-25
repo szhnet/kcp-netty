@@ -17,7 +17,11 @@ public interface UkcpChannelConfig extends ChannelConfig {
 
     int getFastResend();
 
-    UkcpChannelConfig setFastResend(int resend);
+    UkcpChannelConfig setFastResend(int fastResend);
+
+    int getFastLimit();
+
+    UkcpChannelConfig setFastLimit(int fastLimit);
 
     boolean isNocwnd();
 

@@ -1,7 +1,8 @@
 package io.netty.bootstrap;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 
 import io.jpower.kcp.netty.UkcpServerChannel;
 import io.netty.channel.Channel;
@@ -34,8 +35,8 @@ public class UkcpServerBootstrap extends AbstractBootstrap<UkcpServerBootstrap, 
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ServerBootstrap.class);
 
-    private final Map<ChannelOption<?>, Object> childOptions = new LinkedHashMap<ChannelOption<?>, Object>();
-    private final Map<AttributeKey<?>, Object> childAttrs = new LinkedHashMap<AttributeKey<?>, Object>();
+    private final Map<ChannelOption<?>, Object> childOptions = new ConcurrentHashMap<ChannelOption<?>, Object>();
+    private final Map<AttributeKey<?>, Object> childAttrs = new ConcurrentHashMap<AttributeKey<?>, Object>();
     private final UkcpServerBootstrapConfig config = new UkcpServerBootstrapConfig(this);
     private volatile ChannelHandler childHandler;
 
@@ -45,12 +46,8 @@ public class UkcpServerBootstrap extends AbstractBootstrap<UkcpServerBootstrap, 
     private UkcpServerBootstrap(UkcpServerBootstrap bootstrap) {
         super(bootstrap);
         childHandler = bootstrap.childHandler;
-        synchronized (bootstrap.childOptions) {
-            childOptions.putAll(bootstrap.childOptions);
-        }
-        synchronized (bootstrap.childAttrs) {
-            childAttrs.putAll(bootstrap.childAttrs);
-        }
+        childOptions.putAll(bootstrap.childOptions);
+        childAttrs.putAll(bootstrap.childAttrs);
     }
 
     /**
@@ -63,13 +60,9 @@ public class UkcpServerBootstrap extends AbstractBootstrap<UkcpServerBootstrap, 
             throw new NullPointerException("childOption");
         }
         if (value == null) {
-            synchronized (childOptions) {
-                childOptions.remove(childOption);
-            }
+            childOptions.remove(childOption);
         } else {
-            synchronized (childOptions) {
-                childOptions.put(childOption, value);
-            }
+            childOptions.put(childOption, value);
         }
         return this;
     }
@@ -102,32 +95,16 @@ public class UkcpServerBootstrap extends AbstractBootstrap<UkcpServerBootstrap, 
     }
 
     @Override
-    void init(Channel channel) throws Exception {
-        final Map<ChannelOption<?>, Object> options = options0();
-        synchronized (options) {
-            setChannelOptions(channel, options, logger);
-        }
-
-        final Map<AttributeKey<?>, Object> attrs = attrs0();
-        synchronized (attrs) {
-            for (Map.Entry<AttributeKey<?>, Object> e : attrs.entrySet()) {
-                @SuppressWarnings("unchecked")
-                AttributeKey<Object> key = (AttributeKey<Object>) e.getKey();
-                channel.attr(key).set(e.getValue());
-            }
-        }
+    void init(Channel channel) {
+        setChannelOptions(channel, options0().entrySet().toArray(newOptionArray(0)), logger);
+        setAttributes(channel, attrs0().entrySet().toArray(newAttrArray(0)));
 
         ChannelPipeline p = channel.pipeline();
 
         final ChannelHandler currentChildHandler = childHandler;
-        final Map.Entry<ChannelOption<?>, Object>[] currentChildOptions;
-        final Map.Entry<AttributeKey<?>, Object>[] currentChildAttrs;
-        synchronized (childOptions) {
-            currentChildOptions = childOptions.entrySet().toArray(newOptionArray(childOptions.size()));
-        }
-        synchronized (childAttrs) {
-            currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(childAttrs.size()));
-        }
+        final Entry<ChannelOption<?>, Object>[] currentChildOptions =
+                childOptions.entrySet().toArray(newOptionArray(0));
+        final Entry<AttributeKey<?>, Object>[] currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(0));
 
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
@@ -158,16 +135,6 @@ public class UkcpServerBootstrap extends AbstractBootstrap<UkcpServerBootstrap, 
         return this;
     }
 
-    @SuppressWarnings("unchecked")
-    private static Map.Entry<AttributeKey<?>, Object>[] newAttrArray(int size) {
-        return new Map.Entry[size];
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map.Entry<ChannelOption<?>, Object>[] newOptionArray(int size) {
-        return new Map.Entry[size];
-    }
-
     private static class ServerUkcpBootstrapAcceptor extends ChannelInboundHandlerAdapter {
 
         private final ChannelHandler childHandler;
@@ -191,10 +158,7 @@ public class UkcpServerBootstrap extends AbstractBootstrap<UkcpServerBootstrap, 
             child.pipeline().addLast(childHandler);
 
             setChannelOptions(child, childOptions, logger);
-
-            for (Map.Entry<AttributeKey<?>, Object> e : childAttrs) {
-                child.attr((AttributeKey<Object>) e.getKey()).set(e.getValue());
-            }
+            setAttributes(child, childAttrs);
 
             try {
                 parent.eventLoop().register(child).addListener(new ChannelFutureListener() {

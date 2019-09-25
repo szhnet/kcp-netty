@@ -97,6 +97,11 @@ public class Kcp {
      */
     public static final int IKCP_PROBE_LIMIT = 120000;
 
+    /**
+     * max times to trigger fastack
+     */
+    public static final int IKCP_FASTACK_LIMIT = 5;
+
     private int conv;
 
     private int mtu = IKCP_MTU_DEF;
@@ -179,6 +184,8 @@ public class Kcp {
 
     private int fastresend;
 
+    private int fastlimit = IKCP_FASTACK_LIMIT;
+
     private boolean nocwnd;
 
     private boolean stream;
@@ -194,6 +201,10 @@ public class Kcp {
 
     private static long long2Uint(long n) {
         return n & 0x00000000FFFFFFFFL;
+    }
+
+    private static long int2Uint(int i) {
+        return i & 0xFFFFFFFFL;
     }
 
     private static int ibound(int lower, int middle, int upper) {
@@ -1112,8 +1123,8 @@ public class Kcp {
                 output(buffer, this);
                 buffer = createFlushByteBuf();
             }
-            seg.sn = acklist[i * 2];
-            seg.ts = acklist[i * 2 + 1];
+            seg.sn = int2Uint(acklist[i * 2]);
+            seg.ts = int2Uint(acklist[i * 2 + 1]);
             encodeSeg(buffer, seg);
             if (log.isDebugEnabled()) {
                 log.debug("{} flush ack: sn={}, ts={}", this, seg.sn, seg.ts);
@@ -1235,14 +1246,16 @@ public class Kcp {
                             .resendts - current));
                 }
             } else if (segment.fastack >= resent) {
-                needsend = true;
-                incrXmit(segment);
-                segment.fastack = 0;
-                segment.resendts = current + segment.rto;
-                change++;
-                if (log.isDebugEnabled()) {
-                    log.debug("{} fastresend. sn={}, xmit={}, resendts={} ", this, segment.sn, segment.xmit, (segment
-                            .resendts - current));
+                if (segment.xmit <= fastlimit || fastlimit <= 0) {
+                    needsend = true;
+                    incrXmit(segment);
+                    segment.fastack = 0;
+                    segment.resendts = current + segment.rto;
+                    change++;
+                    if (log.isDebugEnabled()) {
+                        log.debug("{} fastresend. sn={}, xmit={}, resendts={} ", this, segment.sn, segment.xmit, (segment
+                                .resendts - current));
+                    }
                 }
             }
 
@@ -1423,7 +1436,8 @@ public class Kcp {
 
     public void logMonitor() {
         if (kcpMonitorLog.isDebugEnabled()) {
-            kcpMonitorLog.debug("{} srtt={}, rttvar={}, rto={}, sndNxt={}, sndUna={}, rcvNxt={}, cwnd={}, xmit={}, maxSegXmit={}",
+            kcpMonitorLog.debug("{} srtt={}, rttvar={}, rto={}, sndNxt={}, sndUna={}, rcvNxt={}, cwnd={}, xmit={}, " +
+                            "maxSegXmit={}",
                     this, rxSrtt, rxRttvar, rxRto, sndNxt, sndUna, rcvNxt, cwnd, xmit, maxSegXmit);
         }
     }
@@ -1541,6 +1555,14 @@ public class Kcp {
 
     public void setFastresend(int fastresend) {
         this.fastresend = fastresend;
+    }
+
+    public int getFastlimit() {
+        return fastlimit;
+    }
+
+    public void setFastlimit(int fastlimit) {
+        this.fastlimit = fastlimit;
     }
 
     public boolean isNocwnd() {
