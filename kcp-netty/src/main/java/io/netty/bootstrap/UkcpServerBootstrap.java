@@ -96,15 +96,15 @@ public class UkcpServerBootstrap extends AbstractBootstrap<UkcpServerBootstrap, 
 
     @Override
     void init(Channel channel) {
-        setChannelOptions(channel, options0().entrySet().toArray(newOptionArray(0)), logger);
-        setAttributes(channel, attrs0().entrySet().toArray(newAttrArray(0)));
+        setChannelOptions(channel, options0().entrySet().toArray(new Map.Entry[0]), logger);
+        setAttributes(channel, attrs0().entrySet().toArray(new Map.Entry[0]));
 
         ChannelPipeline p = channel.pipeline();
 
         final ChannelHandler currentChildHandler = childHandler;
         final Entry<ChannelOption<?>, Object>[] currentChildOptions =
-                childOptions.entrySet().toArray(newOptionArray(0));
-        final Entry<AttributeKey<?>, Object>[] currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(0));
+                childOptions.entrySet().toArray(new Map.Entry[0]);
+        final Entry<AttributeKey<?>, Object>[] currentChildAttrs = childAttrs.entrySet().toArray(new Map.Entry[0]);
 
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
