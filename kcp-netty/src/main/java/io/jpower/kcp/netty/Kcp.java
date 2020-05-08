@@ -22,9 +22,6 @@ public class Kcp {
 
     private static final InternalLogger log = InternalLoggerFactory.getInstance(Kcp.class);
 
-    private static final InternalLogger kcpMonitorLog = InternalLoggerFactory.getInstance("io.jpower.kcp.netty" +
-            ".kcpMonitor");
-
     /**
      * no delay min rto
      */
@@ -199,6 +196,8 @@ public class Kcp {
      */
     private boolean autoSetConv;
 
+    private KcpMetric metric = new KcpMetric(this);
+
     private static long long2Uint(long n) {
         return n & 0x00000000FFFFFFFFL;
     }
@@ -343,6 +342,16 @@ public class Kcp {
         for (Segment seg : segQueue) {
             seg.recycle(true);
         }
+    }
+
+    private ByteBuf tryCreateAndOutput(ByteBuf buffer, int need) {
+        if (buffer == null) {
+            buffer = createFlushByteBuf();
+        } else if (buffer.readableBytes() + need > mtu) {
+            output(buffer, this);
+            buffer = createFlushByteBuf();
+        }
+        return buffer;
     }
 
     private ByteBuf createFlushByteBuf() {
@@ -504,67 +513,6 @@ public class Kcp {
         }
 
         return true;
-    }
-
-    public int send1(ByteBuf buf) {
-        assert mss > 0;
-
-        int len = buf.readableBytes();
-        if (len == 0) {
-            return -1;
-        }
-
-        // append to previous segment in streaming mode (if possible)
-        if (stream) {
-            if (!sndQueue.isEmpty()) {
-                Segment last = sndQueue.peekLast();
-                ByteBuf lastData = last.data;
-                int lastLen = lastData.readableBytes();
-                if (lastLen < mss) {
-                    int capacity = mss - lastLen;
-                    int extend = len < capacity ? len : capacity;
-                    if (lastData.maxWritableBytes() < extend) { // extend
-                        ByteBuf newBuf = byteBufAllocator.ioBuffer(lastLen + extend);
-                        newBuf.writeBytes(lastData);
-                        lastData.release();
-                        lastData = last.data = newBuf;
-                    }
-                    lastData.writeBytes(buf, extend);
-
-                    len = buf.readableBytes();
-                    if (len == 0) {
-                        return 0;
-                    }
-                }
-            }
-        }
-
-        int count = 0;
-        if (len <= mss) {
-            count = 1;
-        } else {
-            count = (len + mss - 1) / mss;
-        }
-
-        if (count > 255) { // Maybe don't need the conditon in stream mode
-            return -2;
-        }
-
-        if (count == 0) { // impossible
-            count = 1;
-        }
-
-        // fragment
-        for (int i = 0; i < count; i++) {
-            int size = len > mss ? mss : len;
-            Segment seg = Segment.createSegment(byteBufAllocator, size);
-            seg.data.writeBytes(buf, size);
-            seg.frg = (short) (stream ? 0 : count - i - 1);
-            sndQueue.add(seg);
-            len = buf.readableBytes();
-        }
-
-        return 0;
     }
 
     public int send(ByteBuf buf) {
@@ -774,162 +722,6 @@ public class Kcp {
         }
     }
 
-    private int input1(ByteBuf data) {
-        long oldSndUna = sndUna;
-        long maxack = 0;
-        boolean flag = false;
-
-        if (log.isDebugEnabled()) {
-            log.debug("{} [RI] {} bytes", this, data.readableBytes());
-        }
-
-        if (data == null || data.readableBytes() < IKCP_OVERHEAD) {
-            return -1;
-        }
-
-        while (true) {
-            int conv, len, wnd;
-            long ts, sn, una;
-            byte cmd;
-            short frg;
-            Segment seg;
-
-            if (data.readableBytes() < IKCP_OVERHEAD) {
-                break;
-            }
-
-            conv = data.readIntLE();
-            if (conv != this.conv && !(this.conv == 0 && autoSetConv)) {
-                return -4;
-            }
-
-            cmd = data.readByte();
-            frg = data.readUnsignedByte();
-            wnd = data.readUnsignedShortLE();
-            ts = data.readUnsignedIntLE();
-            sn = data.readUnsignedIntLE();
-            una = data.readUnsignedIntLE();
-            len = data.readIntLE();
-
-            if (data.readableBytes() < len || len < 0) {
-                return -2;
-            }
-
-            if (cmd != IKCP_CMD_PUSH && cmd != IKCP_CMD_ACK && cmd != IKCP_CMD_WASK && cmd != IKCP_CMD_WINS) {
-                return -3;
-            }
-
-            if (this.conv == 0 && autoSetConv) { // automatically set conv
-                this.conv = conv;
-            }
-
-            this.rmtWnd = wnd;
-            parseUna(una);
-            shrinkBuf();
-
-            boolean readed = false;
-            long uintCurrent = long2Uint(current);
-            switch (cmd) {
-                case IKCP_CMD_ACK: {
-                    int rtt = itimediff(uintCurrent, ts);
-                    if (rtt >= 0) {
-                        updateAck(rtt);
-                    }
-                    parseAck(sn);
-                    shrinkBuf();
-                    if (!flag) {
-                        flag = true;
-                        maxack = sn;
-                    } else {
-                        if (itimediff(sn, maxack) > 0) {
-                            maxack = sn;
-                        }
-                    }
-                    if (log.isDebugEnabled()) {
-                        log.debug("{} input ack: sn={}, rtt={}, rto={}", this, sn, rtt, rxRto);
-                    }
-                    break;
-                }
-                case IKCP_CMD_PUSH: {
-                    if (itimediff(sn, rcvNxt + rcvWnd) < 0) {
-                        ackPush(sn, ts);
-                        if (itimediff(sn, rcvNxt) >= 0) {
-                            seg = Segment.createSegment(byteBufAllocator, len);
-                            seg.conv = conv;
-                            seg.cmd = cmd;
-                            seg.frg = frg;
-                            seg.wnd = wnd;
-                            seg.ts = ts;
-                            seg.sn = sn;
-                            seg.una = una;
-
-                            if (len > 0) {
-                                seg.data.writeBytes(data, len);
-                                readed = true;
-                            }
-
-                            parseData(seg);
-                        }
-                    }
-                    if (log.isDebugEnabled()) {
-                        log.debug("{} input push: sn={}, una={}, ts={}", this, sn, una, ts);
-                    }
-                    break;
-                }
-                case IKCP_CMD_WASK: {
-                    // ready to send back IKCP_CMD_WINS in ikcp_flush
-                    // tell remote my window size
-                    probe |= IKCP_ASK_TELL;
-                    if (log.isDebugEnabled()) {
-                        log.debug("{} input ask", this);
-                    }
-                    break;
-                }
-                case IKCP_CMD_WINS: {
-                    // do nothing
-                    if (log.isDebugEnabled()) {
-                        log.debug("{} input tell: {}", this, wnd);
-                    }
-                    break;
-                }
-                default:
-                    return -3;
-            }
-
-            if (!readed) {
-                data.skipBytes(len);
-            }
-        }
-
-        if (flag) {
-            parseFastack(maxack);
-        }
-
-        if (itimediff(sndUna, oldSndUna) > 0) {
-            if (cwnd < rmtWnd) {
-                int mss = this.mss;
-                if (cwnd < ssthresh) {
-                    cwnd++;
-                    incr += mss;
-                } else {
-                    if (incr < mss) {
-                        incr = mss;
-                    }
-                    incr += (mss * mss) / incr + (mss / 16);
-                    if ((cwnd + 1) * mss <= incr) {
-                        cwnd++;
-                    }
-                }
-                if (cwnd > rmtWnd) {
-                    cwnd = rmtWnd;
-                    incr = rmtWnd * mss;
-                }
-            }
-        }
-
-        return 0;
-    }
-
     public int input(ByteBuf data) {
         long oldSndUna = sndUna;
         long maxack = 0;
@@ -1114,15 +906,12 @@ public class Kcp {
         seg.sn = 0;
         seg.ts = 0;
 
-        ByteBuf buffer = createFlushByteBuf();
+        ByteBuf buffer = null;
 
         // flush acknowledges
         int count = ackcount;
         for (int i = 0; i < count; i++) {
-            if (buffer.readableBytes() + IKCP_OVERHEAD > mtu) {
-                output(buffer, this);
-                buffer = createFlushByteBuf();
-            }
+            buffer = tryCreateAndOutput(buffer, IKCP_OVERHEAD);
             seg.sn = int2Uint(acklist[i * 2]);
             seg.ts = int2Uint(acklist[i * 2 + 1]);
             encodeSeg(buffer, seg);
@@ -1159,10 +948,7 @@ public class Kcp {
         // flush window probing commands
         if ((probe & IKCP_ASK_SEND) != 0) {
             seg.cmd = IKCP_CMD_WASK;
-            if (buffer.readableBytes() + IKCP_OVERHEAD > mtu) {
-                output(buffer, this);
-                buffer = createFlushByteBuf();
-            }
+            buffer = tryCreateAndOutput(buffer, IKCP_OVERHEAD);
             encodeSeg(buffer, seg);
             if (log.isDebugEnabled()) {
                 log.debug("{} flush ask", this);
@@ -1172,10 +958,7 @@ public class Kcp {
         // flush window probing commands
         if ((probe & IKCP_ASK_TELL) != 0) {
             seg.cmd = IKCP_CMD_WINS;
-            if (buffer.readableBytes() + IKCP_OVERHEAD > mtu) {
-                output(buffer, this);
-                buffer = createFlushByteBuf();
-            }
+            buffer = tryCreateAndOutput(buffer, IKCP_OVERHEAD);
             encodeSeg(buffer, seg);
             if (log.isDebugEnabled()) {
                 log.debug("{} flush tell: wnd={}", this, seg.wnd);
@@ -1253,7 +1036,8 @@ public class Kcp {
                     segment.resendts = current + segment.rto;
                     change++;
                     if (log.isDebugEnabled()) {
-                        log.debug("{} fastresend. sn={}, xmit={}, resendts={} ", this, segment.sn, segment.xmit, (segment
+                        log.debug("{} fastresend. sn={}, xmit={}, resendts={} ", this, segment.sn, segment.xmit,
+                                (segment
                                 .resendts - current));
                     }
                 }
@@ -1268,11 +1052,7 @@ public class Kcp {
                 int segLen = segData.readableBytes();
                 int need = IKCP_OVERHEAD + segLen;
 
-                if (buffer.readableBytes() + need > mtu) {
-                    output(buffer, this);
-                    buffer = createFlushByteBuf();
-                }
-
+                buffer = tryCreateAndOutput(buffer, need);
                 encodeSeg(buffer, segment);
 
                 if (segLen > 0) {
@@ -1287,10 +1067,12 @@ public class Kcp {
         }
 
         // flash remain segments
-        if (buffer.readableBytes() > 0) {
-            output(buffer, this);
-        } else {
-            buffer.release();
+        if (buffer != null) {
+            if (buffer.readableBytes() > 0) {
+                output(buffer, this);
+            } else {
+                buffer.release();
+            }
         }
 
         seg.recycle(true);
@@ -1429,16 +1211,8 @@ public class Kcp {
     }
 
     private void incrXmit(Segment seg) {
-        if (++seg.xmit > maxSegXmit) {
-            maxSegXmit = seg.xmit;
-        }
-    }
-
-    public void logMonitor() {
-        if (kcpMonitorLog.isDebugEnabled()) {
-            kcpMonitorLog.debug("{} srtt={}, rttvar={}, rto={}, sndNxt={}, sndUna={}, rcvNxt={}, cwnd={}, xmit={}, " +
-                            "maxSegXmit={}",
-                    this, rxSrtt, rxRttvar, rxRto, sndNxt, sndUna, rcvNxt, cwnd, xmit, maxSegXmit);
+        if (++seg.xmit > metric.maxSegXmit()) {
+            metric.maxSegXmit(seg.xmit);
         }
     }
 
@@ -1623,6 +1397,42 @@ public class Kcp {
 
     public void setAutoSetConv(boolean autoSetConv) {
         this.autoSetConv = autoSetConv;
+    }
+
+    int getSrtt() {
+        return rxSrtt;
+    }
+
+    int getRttvar() {
+        return rxRttvar;
+    }
+
+    int getRto() {
+        return rxRto;
+    }
+
+    long getSndNxt() {
+        return sndNxt;
+    }
+
+    long getSndUna() {
+        return sndUna;
+    }
+
+    long getRcvNxt() {
+        return rcvNxt;
+    }
+
+    int getCwnd() {
+        return cwnd;
+    }
+
+    int getXmit() {
+        return xmit;
+    }
+
+    public KcpMetric getMetric() {
+        return metric;
     }
 
     @Override

@@ -403,7 +403,6 @@ public class Ukcp {
     void setKcpClosed() {
         kcp.setState(-1);
         kcp.release();
-        kcp.logMonitor();
     }
 
     @SuppressWarnings("unchecked")
