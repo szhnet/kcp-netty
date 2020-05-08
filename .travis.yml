@@ -1,9 +1,9 @@
-dist: trusty
+dist: xenial
 
 language: java
 
 jdk:
-- openjdk7
+- openjdk8
 
 notifications:
   email:
