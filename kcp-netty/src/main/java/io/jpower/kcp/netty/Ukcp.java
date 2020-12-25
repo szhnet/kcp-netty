@@ -257,6 +257,15 @@ public class Ukcp {
         return this;
     }
 
+    public int getFastLimit() {
+        return kcp.getFastlimit();
+    }
+
+    public Ukcp setFastLimit(int fastLimit) {
+        kcp.setFastlimit(fastLimit);
+        return this;
+    }
+
     public boolean isNocwnd() {
         return kcp.isNocwnd();
     }

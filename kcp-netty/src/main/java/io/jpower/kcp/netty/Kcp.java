@@ -94,6 +94,11 @@ public class Kcp {
      */
     public static final int IKCP_PROBE_LIMIT = 120000;
 
+    /**
+     * max times to trigger fastack
+     */
+    public static final int IKCP_FASTACK_LIMIT = 5;
+
     private int conv;
 
     private int mtu = IKCP_MTU_DEF;
@@ -114,7 +119,7 @@ public class Kcp {
 
     private int ssthresh = IKCP_THRESH_INIT;
 
-    private int rxRttval;
+    private int rxRttvar;
 
     private int rxSrtt;
 
@@ -139,6 +144,8 @@ public class Kcp {
     private long tsFlush = IKCP_INTERVAL;
 
     private int xmit;
+
+    private int maxSegXmit;
 
     private boolean nodelay;
 
@@ -174,6 +181,8 @@ public class Kcp {
 
     private int fastresend;
 
+    private int fastlimit = IKCP_FASTACK_LIMIT;
+
     private boolean nocwnd;
 
     private boolean stream;
@@ -187,8 +196,14 @@ public class Kcp {
      */
     private boolean autoSetConv;
 
+    private KcpMetric metric = new KcpMetric(this);
+
     private static long long2Uint(long n) {
         return n & 0x00000000FFFFFFFFL;
+    }
+
+    private static long int2Uint(int i) {
+        return i & 0xFFFFFFFFL;
     }
 
     private static int ibound(int lower, int middle, int upper) {
@@ -327,6 +342,16 @@ public class Kcp {
         for (Segment seg : segQueue) {
             seg.recycle(true);
         }
+    }
+
+    private ByteBuf tryCreateAndOutput(ByteBuf buffer, int need) {
+        if (buffer == null) {
+            buffer = createFlushByteBuf();
+        } else if (buffer.readableBytes() + need > mtu) {
+            output(buffer, this);
+            buffer = createFlushByteBuf();
+        }
+        return buffer;
     }
 
     private ByteBuf createFlushByteBuf() {
@@ -490,67 +515,6 @@ public class Kcp {
         return true;
     }
 
-    public int send1(ByteBuf buf) {
-        assert mss > 0;
-
-        int len = buf.readableBytes();
-        if (len == 0) {
-            return -1;
-        }
-
-        // append to previous segment in streaming mode (if possible)
-        if (stream) {
-            if (!sndQueue.isEmpty()) {
-                Segment last = sndQueue.peekLast();
-                ByteBuf lastData = last.data;
-                int lastLen = lastData.readableBytes();
-                if (lastLen < mss) {
-                    int capacity = mss - lastLen;
-                    int extend = len < capacity ? len : capacity;
-                    if (lastData.maxWritableBytes() < extend) { // extend
-                        ByteBuf newBuf = byteBufAllocator.ioBuffer(lastLen + extend);
-                        newBuf.writeBytes(lastData);
-                        lastData.release();
-                        lastData = last.data = newBuf;
-                    }
-                    lastData.writeBytes(buf, extend);
-
-                    len = buf.readableBytes();
-                    if (len == 0) {
-                        return 0;
-                    }
-                }
-            }
-        }
-
-        int count = 0;
-        if (len <= mss) {
-            count = 1;
-        } else {
-            count = (len + mss - 1) / mss;
-        }
-
-        if (count > 255) { // Maybe don't need the conditon in stream mode
-            return -2;
-        }
-
-        if (count == 0) { // impossible
-            count = 1;
-        }
-
-        // fragment
-        for (int i = 0; i < count; i++) {
-            int size = len > mss ? mss : len;
-            Segment seg = Segment.createSegment(byteBufAllocator, size);
-            seg.data.writeBytes(buf, size);
-            seg.frg = (short) (stream ? 0 : count - i - 1);
-            sndQueue.add(seg);
-            len = buf.readableBytes();
-        }
-
-        return 0;
-    }
-
     public int send(ByteBuf buf) {
         assert mss > 0;
 
@@ -614,19 +578,19 @@ public class Kcp {
     private void updateAck(int rtt) {
         if (rxSrtt == 0) {
             rxSrtt = rtt;
-            rxRttval = rtt / 2;
+            rxRttvar = rtt / 2;
         } else {
             int delta = rtt - rxSrtt;
             if (delta < 0) {
                 delta = -delta;
             }
-            rxRttval = (3 * rxRttval + delta) / 4;
+            rxRttvar = (3 * rxRttvar + delta) / 4;
             rxSrtt = (7 * rxSrtt + rtt) / 8;
             if (rxSrtt < 1) {
                 rxSrtt = 1;
             }
         }
-        int rto = rxSrtt + Math.max(interval, 4 * rxRttval);
+        int rto = rxSrtt + Math.max(interval, 4 * rxRttvar);
         rxRto = ibound(rxMinrto, rto, IKCP_RTO_MAX);
     }
 
@@ -758,162 +722,6 @@ public class Kcp {
         }
     }
 
-    private int input1(ByteBuf data) {
-        long oldSndUna = sndUna;
-        long maxack = 0;
-        boolean flag = false;
-
-        if (log.isDebugEnabled()) {
-            log.debug("{} [RI] {} bytes", this, data.readableBytes());
-        }
-
-        if (data == null || data.readableBytes() < IKCP_OVERHEAD) {
-            return -1;
-        }
-
-        while (true) {
-            int conv, len, wnd;
-            long ts, sn, una;
-            byte cmd;
-            short frg;
-            Segment seg;
-
-            if (data.readableBytes() < IKCP_OVERHEAD) {
-                break;
-            }
-
-            conv = data.readIntLE();
-            if (conv != this.conv && !(this.conv == 0 && autoSetConv)) {
-                return -4;
-            }
-
-            cmd = data.readByte();
-            frg = data.readUnsignedByte();
-            wnd = data.readUnsignedShortLE();
-            ts = data.readUnsignedIntLE();
-            sn = data.readUnsignedIntLE();
-            una = data.readUnsignedIntLE();
-            len = data.readIntLE();
-
-            if (data.readableBytes() < len) {
-                return -2;
-            }
-
-            if (cmd != IKCP_CMD_PUSH && cmd != IKCP_CMD_ACK && cmd != IKCP_CMD_WASK && cmd != IKCP_CMD_WINS) {
-                return -3;
-            }
-
-            if (this.conv == 0 && autoSetConv) { // automatically set conv
-                this.conv = conv;
-            }
-
-            this.rmtWnd = wnd;
-            parseUna(una);
-            shrinkBuf();
-
-            boolean readed = false;
-            long uintCurrent = long2Uint(current);
-            switch (cmd) {
-                case IKCP_CMD_ACK: {
-                    int rtt = itimediff(uintCurrent, ts);
-                    if (rtt >= 0) {
-                        updateAck(rtt);
-                    }
-                    parseAck(sn);
-                    shrinkBuf();
-                    if (!flag) {
-                        flag = true;
-                        maxack = sn;
-                    } else {
-                        if (itimediff(sn, maxack) > 0) {
-                            maxack = sn;
-                        }
-                    }
-                    if (log.isDebugEnabled()) {
-                        log.debug("{} input ack: sn={}, rtt={}, rto={}", this, sn, rtt, rxRto);
-                    }
-                    break;
-                }
-                case IKCP_CMD_PUSH: {
-                    if (itimediff(sn, rcvNxt + rcvWnd) < 0) {
-                        ackPush(sn, ts);
-                        if (itimediff(sn, rcvNxt) >= 0) {
-                            seg = Segment.createSegment(byteBufAllocator, len);
-                            seg.conv = conv;
-                            seg.cmd = cmd;
-                            seg.frg = frg;
-                            seg.wnd = wnd;
-                            seg.ts = ts;
-                            seg.sn = sn;
-                            seg.una = una;
-
-                            if (len > 0) {
-                                seg.data.writeBytes(data, len);
-                                readed = true;
-                            }
-
-                            parseData(seg);
-                        }
-                    }
-                    if (log.isDebugEnabled()) {
-                        log.debug("{} input push: sn={}, una={}, ts={}", this, sn, una, ts);
-                    }
-                    break;
-                }
-                case IKCP_CMD_WASK: {
-                    // ready to send back IKCP_CMD_WINS in ikcp_flush
-                    // tell remote my window size
-                    probe |= IKCP_ASK_TELL;
-                    if (log.isDebugEnabled()) {
-                        log.debug("{} input ask", this);
-                    }
-                    break;
-                }
-                case IKCP_CMD_WINS: {
-                    // do nothing
-                    if (log.isDebugEnabled()) {
-                        log.debug("{} input tell: {}", this, wnd);
-                    }
-                    break;
-                }
-                default:
-                    return -3;
-            }
-
-            if (!readed) {
-                data.skipBytes(len);
-            }
-        }
-
-        if (flag) {
-            parseFastack(maxack);
-        }
-
-        if (itimediff(sndUna, oldSndUna) > 0) {
-            if (cwnd < rmtWnd) {
-                int mss = this.mss;
-                if (cwnd < ssthresh) {
-                    cwnd++;
-                    incr += mss;
-                } else {
-                    if (incr < mss) {
-                        incr = mss;
-                    }
-                    incr += (mss * mss) / incr + (mss / 16);
-                    if ((cwnd + 1) * mss <= incr) {
-                        cwnd++;
-                    }
-                }
-                if (cwnd > rmtWnd) {
-                    cwnd = rmtWnd;
-                    incr = rmtWnd * mss;
-                }
-            }
-        }
-
-        return 0;
-    }
-
     public int input(ByteBuf data) {
         long oldSndUna = sndUna;
         long maxack = 0;
@@ -951,7 +759,7 @@ public class Kcp {
             una = data.readUnsignedIntLE();
             len = data.readIntLE();
 
-            if (data.readableBytes() < len) {
+            if (data.readableBytes() < len || len < 0) {
                 return -2;
             }
 
@@ -1098,17 +906,14 @@ public class Kcp {
         seg.sn = 0;
         seg.ts = 0;
 
-        ByteBuf buffer = createFlushByteBuf();
+        ByteBuf buffer = null;
 
         // flush acknowledges
         int count = ackcount;
         for (int i = 0; i < count; i++) {
-            if (buffer.readableBytes() + IKCP_OVERHEAD > mtu) {
-                output(buffer, this);
-                buffer = createFlushByteBuf();
-            }
-            seg.sn = acklist[i * 2];
-            seg.ts = acklist[i * 2 + 1];
+            buffer = tryCreateAndOutput(buffer, IKCP_OVERHEAD);
+            seg.sn = int2Uint(acklist[i * 2]);
+            seg.ts = int2Uint(acklist[i * 2 + 1]);
             encodeSeg(buffer, seg);
             if (log.isDebugEnabled()) {
                 log.debug("{} flush ack: sn={}, ts={}", this, seg.sn, seg.ts);
@@ -1143,10 +948,7 @@ public class Kcp {
         // flush window probing commands
         if ((probe & IKCP_ASK_SEND) != 0) {
             seg.cmd = IKCP_CMD_WASK;
-            if (buffer.readableBytes() + IKCP_OVERHEAD > mtu) {
-                output(buffer, this);
-                buffer = createFlushByteBuf();
-            }
+            buffer = tryCreateAndOutput(buffer, IKCP_OVERHEAD);
             encodeSeg(buffer, seg);
             if (log.isDebugEnabled()) {
                 log.debug("{} flush ask", this);
@@ -1156,10 +958,7 @@ public class Kcp {
         // flush window probing commands
         if ((probe & IKCP_ASK_TELL) != 0) {
             seg.cmd = IKCP_CMD_WINS;
-            if (buffer.readableBytes() + IKCP_OVERHEAD > mtu) {
-                output(buffer, this);
-                buffer = createFlushByteBuf();
-            }
+            buffer = tryCreateAndOutput(buffer, IKCP_OVERHEAD);
             encodeSeg(buffer, seg);
             if (log.isDebugEnabled()) {
                 log.debug("{} flush tell: wnd={}", this, seg.wnd);
@@ -1207,7 +1006,7 @@ public class Kcp {
             boolean needsend = false;
             if (segment.xmit == 0) {
                 needsend = true;
-                segment.xmit++;
+                incrXmit(segment);
                 segment.rto = rxRto;
                 segment.resendts = current + segment.rto + rtomin;
                 if (log.isDebugEnabled()) {
@@ -1215,8 +1014,9 @@ public class Kcp {
                 }
             } else if (itimediff(current, segment.resendts) >= 0) {
                 needsend = true;
-                segment.xmit++;
+                incrXmit(segment);
                 xmit++;
+                segment.fastack = 0;
                 if (!nodelay) {
                     segment.rto += rxRto;
                 } else {
@@ -1229,14 +1029,17 @@ public class Kcp {
                             .resendts - current));
                 }
             } else if (segment.fastack >= resent) {
-                needsend = true;
-                segment.xmit++;
-                segment.fastack = 0;
-                segment.resendts = current + segment.rto;
-                change++;
-                if (log.isDebugEnabled()) {
-                    log.debug("{} fastresend. sn={}, xmit={}, resendts={} ", this, segment.sn, segment.xmit, (segment
-                            .resendts - current));
+                if (segment.xmit <= fastlimit || fastlimit <= 0) {
+                    needsend = true;
+                    incrXmit(segment);
+                    segment.fastack = 0;
+                    segment.resendts = current + segment.rto;
+                    change++;
+                    if (log.isDebugEnabled()) {
+                        log.debug("{} fastresend. sn={}, xmit={}, resendts={} ", this, segment.sn, segment.xmit,
+                                (segment
+                                .resendts - current));
+                    }
                 }
             }
 
@@ -1249,11 +1052,7 @@ public class Kcp {
                 int segLen = segData.readableBytes();
                 int need = IKCP_OVERHEAD + segLen;
 
-                if (buffer.readableBytes() + need > mtu) {
-                    output(buffer, this);
-                    buffer = createFlushByteBuf();
-                }
-
+                buffer = tryCreateAndOutput(buffer, need);
                 encodeSeg(buffer, segment);
 
                 if (segLen > 0) {
@@ -1268,10 +1067,12 @@ public class Kcp {
         }
 
         // flash remain segments
-        if (buffer.readableBytes() > 0) {
-            output(buffer, this);
-        } else {
-            buffer.release();
+        if (buffer != null) {
+            if (buffer.readableBytes() > 0) {
+                output(buffer, this);
+            } else {
+                buffer.release();
+            }
         }
 
         seg.recycle(true);
@@ -1409,6 +1210,12 @@ public class Kcp {
         return false;
     }
 
+    private void incrXmit(Segment seg) {
+        if (++seg.xmit > metric.maxSegXmit()) {
+            metric.maxSegXmit(seg.xmit);
+        }
+    }
+
     public int getMtu() {
         return mtu;
     }
@@ -1524,6 +1331,14 @@ public class Kcp {
         this.fastresend = fastresend;
     }
 
+    public int getFastlimit() {
+        return fastlimit;
+    }
+
+    public void setFastlimit(int fastlimit) {
+        this.fastlimit = fastlimit;
+    }
+
     public boolean isNocwnd() {
         return nocwnd;
     }
@@ -1582,6 +1397,42 @@ public class Kcp {
 
     public void setAutoSetConv(boolean autoSetConv) {
         this.autoSetConv = autoSetConv;
+    }
+
+    int getSrtt() {
+        return rxSrtt;
+    }
+
+    int getRttvar() {
+        return rxRttvar;
+    }
+
+    int getRto() {
+        return rxRto;
+    }
+
+    long getSndNxt() {
+        return sndNxt;
+    }
+
+    long getSndUna() {
+        return sndUna;
+    }
+
+    long getRcvNxt() {
+        return rcvNxt;
+    }
+
+    int getCwnd() {
+        return cwnd;
+    }
+
+    int getXmit() {
+        return xmit;
+    }
+
+    public KcpMetric getMetric() {
+        return metric;
     }
 
     @Override

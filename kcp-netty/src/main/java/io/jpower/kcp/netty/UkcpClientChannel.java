@@ -1,5 +1,7 @@
 package io.jpower.kcp.netty;
 
+import static io.jpower.kcp.netty.Consts.sheduleUpdateLog;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -25,9 +27,6 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 public final class UkcpClientChannel extends AbstractChannel implements UkcpChannel, Runnable {
 
     private static final InternalLogger log = InternalLoggerFactory.getInstance(UkcpClientChannel.class);
-
-    private static final InternalLogger sheduleUpdateLog = InternalLoggerFactory.getInstance("io.jpower.kcp.netty" +
-            ".sheduleUpdate");
 
     private static final ChannelMetadata METADATA = new ChannelMetadata(false);
 

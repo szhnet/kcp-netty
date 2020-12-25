@@ -1,5 +1,7 @@
 package io.jpower.kcp.netty;
 
+import static io.jpower.kcp.netty.Consts.sheduleUpdateLog;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -40,9 +42,6 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 public final class UkcpServerChannel extends AbstractNioMessageChannel implements ServerChannel, Runnable {
 
     private static final InternalLogger log = InternalLoggerFactory.getInstance(UkcpServerChannel.class);
-
-    private static final InternalLogger sheduleUpdateLog = InternalLoggerFactory.getInstance("io.jpower.kcp.netty" +
-            ".sheduleUpdate");
 
     private static final ChannelMetadata METADATA = new ChannelMetadata(false);
 
@@ -365,7 +364,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
     @Override
     public void run() {
         long current = System.currentTimeMillis();
-        long nextTsUpadte = -1;
+        long nextTsUpdate = -1;
 
         for (Iterator<Map.Entry<SocketAddress, UkcpServerChildChannel>> itr = childChannelMapItr.rewind(); itr
                 .hasNext(); ) {
@@ -401,8 +400,8 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
             } else {
                 nextTsUp = tsUp;
             }
-            if (nextTsUp != -1 && (nextTsUpadte == -1 || nextTsUp < nextTsUpadte)) {
-                nextTsUpadte = nextTsUp;
+            if (nextTsUp != -1 && (nextTsUpdate == -1 || nextTsUp < nextTsUpdate)) {
+                nextTsUpdate = nextTsUp;
             }
         }
 
@@ -442,13 +441,13 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
                 } else {
                     nextTsUp = tsUp;
                 }
-                if (nextTsUp != -1 && (nextTsUpadte == -1 || nextTsUp < nextTsUpadte)) {
-                    nextTsUpadte = nextTsUp;
+                if (nextTsUp != -1 && (nextTsUpdate == -1 || nextTsUp < nextTsUpdate)) {
+                    nextTsUpdate = nextTsUp;
                 }
             }
         }
 
-        tsUpdate = nextTsUpadte;
+        tsUpdate = nextTsUpdate;
         if (tsUpdate != -1) {
             scheduleUpdate(tsUpdate, current);
         }

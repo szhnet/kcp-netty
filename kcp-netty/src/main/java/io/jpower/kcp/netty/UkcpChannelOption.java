@@ -16,6 +16,9 @@ public final class UkcpChannelOption<T> extends ChannelOption<T> {
     public static final ChannelOption<Integer> UKCP_FAST_RESEND =
             valueOf(UkcpChannelOption.class, "UKCP_FAST_RESEND");
 
+    public static final ChannelOption<Integer> UKCP_FAST_LIMIT =
+            valueOf(UkcpChannelOption.class, "UKCP_FAST_LIMIT");
+
     public static final ChannelOption<Boolean> UKCP_NOCWND =
             valueOf(UkcpChannelOption.class, "UKCP_NOCWND");
 
