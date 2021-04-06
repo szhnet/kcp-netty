@@ -180,7 +180,9 @@
                                     <goal>jar</goal>
                                 </goals>
                                 <configuration>
-                                    <additionalparam>${javadoc.opts}</additionalparam>
+                                    <additionalOptions>
+                                        <additionalOption>${javadoc.opts}</additionalOption>
+                                    </additionalOptions>
                                 </configuration>
                             </execution>
                         </executions>
