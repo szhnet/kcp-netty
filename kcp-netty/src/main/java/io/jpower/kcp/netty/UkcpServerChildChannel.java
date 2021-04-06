@@ -222,19 +222,19 @@ public final class UkcpServerChildChannel extends AbstractChannel implements Ukc
         return ukcp.peekSize();
     }
 
-    long kcpUpdate(long current) {
+    int kcpUpdate(int current) {
         return ukcp.update(current);
     }
 
-    long kcpCheck(long current) {
+    int kcpCheck(int current) {
         return ukcp.check(current);
     }
 
-    long kcpTsUpdate() {
+    int kcpTsUpdate() {
         return ukcp.getTsUpdate();
     }
 
-    void kcpTsUpdate(long tsUpdate) {
+    void kcpTsUpdate(int tsUpdate) {
         ukcp.setTsUpdate(tsUpdate);
     }
 

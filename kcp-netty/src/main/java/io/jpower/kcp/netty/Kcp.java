@@ -9,7 +9,8 @@ import io.jpower.kcp.netty.internal.ReItrLinkedList;
 import io.jpower.kcp.netty.internal.ReusableListIterator;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.util.Recycler;
+import io.netty.util.internal.ObjectPool;
+import io.netty.util.internal.ObjectPool.Handle;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
@@ -68,7 +69,10 @@ public class Kcp {
 
     public static final int IKCP_WND_SND = 32;
 
-    public static final int IKCP_WND_RCV = 32;
+    /**
+     * must >= max fragment size
+     */
+    public static final int IKCP_WND_RCV = 128;
 
     public static final int IKCP_MTU_DEF = 1400;
 
@@ -113,9 +117,9 @@ public class Kcp {
 
     private long rcvNxt;
 
-    private long tsRecent;
+    private int tsRecent;
 
-    private long tsLastack;
+    private int tsLastack;
 
     private int ssthresh = IKCP_THRESH_INIT;
 
@@ -137,11 +141,11 @@ public class Kcp {
 
     private int probe;
 
-    private long current;
+    private int current;
 
     private int interval = IKCP_INTERVAL;
 
-    private long tsFlush = IKCP_INTERVAL;
+    private int tsFlush = IKCP_INTERVAL;
 
     private int xmit;
 
@@ -151,7 +155,7 @@ public class Kcp {
 
     private boolean updated;
 
-    private long tsProbe;
+    private int tsProbe;
 
     private int probeWait;
 
@@ -198,19 +202,11 @@ public class Kcp {
 
     private KcpMetric metric = new KcpMetric(this);
 
-    private static long long2Uint(long n) {
-        return n & 0x00000000FFFFFFFFL;
-    }
-
     private static long int2Uint(int i) {
         return i & 0xFFFFFFFFL;
     }
 
     private static int ibound(int lower, int middle, int upper) {
-        return Math.min(Math.max(lower, middle), upper);
-    }
-
-    private static long ibound(long lower, long middle, long upper) {
         return Math.min(Math.max(lower, middle), upper);
     }
 
@@ -239,7 +235,7 @@ public class Kcp {
         buf.writeByte(seg.cmd);
         buf.writeByte(seg.frg);
         buf.writeShortLE(seg.wnd);
-        buf.writeIntLE((int) seg.ts);
+        buf.writeIntLE(seg.ts);
         buf.writeIntLE((int) seg.sn);
         buf.writeIntLE((int) seg.una);
         buf.writeIntLE(seg.data.readableBytes());
@@ -249,7 +245,7 @@ public class Kcp {
 
     private static class Segment {
 
-        private final Recycler.Handle<Segment> recyclerHandle;
+        private final Handle<Segment> recyclerHandle;
 
         private int conv;
 
@@ -259,13 +255,13 @@ public class Kcp {
 
         private int wnd;
 
-        private long ts;
+        private int ts;
 
         private long sn;
 
         private long una;
 
-        private long resendts;
+        private int resendts;
 
         private int rto;
 
@@ -275,16 +271,9 @@ public class Kcp {
 
         private ByteBuf data;
 
-        private static final Recycler<Segment> RECYCLER = new Recycler<Segment>() {
+        private static final ObjectPool<Segment> RECYCLER = ObjectPool.newPool(Segment::new);
 
-            @Override
-            protected Segment newObject(Handle<Segment> handle) {
-                return new Segment(handle);
-            }
-
-        };
-
-        private Segment(Recycler.Handle<Segment> recyclerHandle) {
+        private Segment(Handle<Segment> recyclerHandle) {
             this.recyclerHandle = recyclerHandle;
         }
 
@@ -344,7 +333,7 @@ public class Kcp {
         }
     }
 
-    private ByteBuf tryCreateAndOutput(ByteBuf buffer, int need) {
+    private ByteBuf tryCreateOrOutput(ByteBuf buffer, int need) {
         if (buffer == null) {
             buffer = createFlushByteBuf();
         } else if (buffer.readableBytes() + need > mtu) {
@@ -555,7 +544,7 @@ public class Kcp {
             count = (len + mss - 1) / mss;
         }
 
-        if (count > 255) { // Maybe don't need the conditon in stream mode
+        if (count >= IKCP_WND_RCV) { // Maybe don't need the conditon in stream mode
             return -2;
         }
 
@@ -648,7 +637,7 @@ public class Kcp {
         }
     }
 
-    private void ackPush(long sn, long ts) {
+    private void ackPush(long sn, int ts) {
         int newSize = 2 * (ackcount + 1);
 
         if (newSize > acklist.length) {
@@ -664,7 +653,7 @@ public class Kcp {
         }
 
         acklist[2 * ackcount] = (int) sn;
-        acklist[2 * ackcount + 1] = (int) ts;
+        acklist[2 * ackcount + 1] = ts;
         ackcount++;
     }
 
@@ -736,8 +725,8 @@ public class Kcp {
         }
 
         while (true) {
-            int conv, len, wnd;
-            long ts, sn, una;
+            int conv, len, wnd, ts;
+            long sn, una;
             byte cmd;
             short frg;
             Segment seg;
@@ -754,7 +743,7 @@ public class Kcp {
             cmd = data.readByte();
             frg = data.readUnsignedByte();
             wnd = data.readUnsignedShortLE();
-            ts = data.readUnsignedIntLE();
+            ts = data.readIntLE();
             sn = data.readUnsignedIntLE();
             una = data.readUnsignedIntLE();
             len = data.readIntLE();
@@ -776,10 +765,10 @@ public class Kcp {
             shrinkBuf();
 
             boolean readed = false;
-            long uintCurrent = long2Uint(current);
+            int current = this.current;
             switch (cmd) {
                 case IKCP_CMD_ACK: {
-                    int rtt = itimediff(uintCurrent, ts);
+                    int rtt = itimediff(current, ts);
                     if (rtt >= 0) {
                         updateAck(rtt);
                     }
@@ -889,8 +878,7 @@ public class Kcp {
      * ikcp_flush
      */
     private void flush() {
-        long current = this.current;
-        long uintCurrent = long2Uint(current);
+        int current = this.current;
 
         // 'ikcp_update' haven't been called.
         if (!updated) {
@@ -911,9 +899,9 @@ public class Kcp {
         // flush acknowledges
         int count = ackcount;
         for (int i = 0; i < count; i++) {
-            buffer = tryCreateAndOutput(buffer, IKCP_OVERHEAD);
+            buffer = tryCreateOrOutput(buffer, IKCP_OVERHEAD);
             seg.sn = int2Uint(acklist[i * 2]);
-            seg.ts = int2Uint(acklist[i * 2 + 1]);
+            seg.ts = acklist[i * 2 + 1];
             encodeSeg(buffer, seg);
             if (log.isDebugEnabled()) {
                 log.debug("{} flush ack: sn={}, ts={}", this, seg.sn, seg.ts);
@@ -948,7 +936,7 @@ public class Kcp {
         // flush window probing commands
         if ((probe & IKCP_ASK_SEND) != 0) {
             seg.cmd = IKCP_CMD_WASK;
-            buffer = tryCreateAndOutput(buffer, IKCP_OVERHEAD);
+            buffer = tryCreateOrOutput(buffer, IKCP_OVERHEAD);
             encodeSeg(buffer, seg);
             if (log.isDebugEnabled()) {
                 log.debug("{} flush ask", this);
@@ -958,7 +946,7 @@ public class Kcp {
         // flush window probing commands
         if ((probe & IKCP_ASK_TELL) != 0) {
             seg.cmd = IKCP_CMD_WINS;
-            buffer = tryCreateAndOutput(buffer, IKCP_OVERHEAD);
+            buffer = tryCreateOrOutput(buffer, IKCP_OVERHEAD);
             encodeSeg(buffer, seg);
             if (log.isDebugEnabled()) {
                 log.debug("{} flush tell: wnd={}", this, seg.wnd);
@@ -985,7 +973,7 @@ public class Kcp {
             newSeg.conv = conv;
             newSeg.cmd = IKCP_CMD_PUSH;
             newSeg.wnd = seg.wnd;
-            newSeg.ts = uintCurrent;
+            newSeg.ts = current;
             newSeg.sn = sndNxt++;
             newSeg.una = rcvNxt;
             newSeg.resendts = current;
@@ -1044,7 +1032,7 @@ public class Kcp {
             }
 
             if (needsend) {
-                segment.ts = uintCurrent;
+                segment.ts = current;
                 segment.wnd = seg.wnd;
                 segment.una = rcvNxt;
 
@@ -1052,7 +1040,7 @@ public class Kcp {
                 int segLen = segData.readableBytes();
                 int need = IKCP_OVERHEAD + segLen;
 
-                buffer = tryCreateAndOutput(buffer, need);
+                buffer = tryCreateOrOutput(buffer, need);
                 encodeSeg(buffer, segment);
 
                 if (segLen > 0) {
@@ -1110,7 +1098,7 @@ public class Kcp {
      *
      * @param current
      */
-    public void update(long current) {
+    public void update(int current) {
         this.current = current;
 
         if (!updated) {
@@ -1156,12 +1144,12 @@ public class Kcp {
      * @param current
      * @return
      */
-    public long check(long current) {
+    public int check(int current) {
         if (!updated) {
             return current;
         }
 
-        long tsFlush = this.tsFlush;
+        int tsFlush = this.tsFlush;
         int slap = itimediff(current, tsFlush);
         if (slap >= 10000 || slap < -10000) {
             tsFlush = current;

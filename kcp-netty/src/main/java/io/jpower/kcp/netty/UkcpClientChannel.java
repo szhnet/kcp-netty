@@ -41,7 +41,7 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
 
     private final KcpOutput output = new UkcpClientOutput();
 
-    private long tsUpdate = -1;
+    private int tsUpdate = -1;
 
     private boolean flushPending;
 
@@ -255,19 +255,19 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
         return ukcp.peekSize();
     }
 
-    long kcpUpdate(long current) {
+    int kcpUpdate(int current) {
         return ukcp.update(current);
     }
 
-    long kcpCheck(long current) {
+    int kcpCheck(int current) {
         return ukcp.check(current);
     }
 
-    long kcpTsUpdate() {
+    int kcpTsUpdate() {
         return ukcp.getTsUpdate();
     }
 
-    void kcpTsUpdate(long tsUpdate) {
+    void kcpTsUpdate(int tsUpdate) {
         ukcp.setTsUpdate(tsUpdate);
     }
 
@@ -275,7 +275,7 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
         return ukcp.getState();
     }
 
-    void scheduleUpdate(long tsUpdate, long current) {
+    void scheduleUpdate(int tsUpdate, int current) {
         if (sheduleUpdateLog.isDebugEnabled()) {
             sheduleUpdateLog.debug("schedule delay: " + (tsUpdate - current));
         }
@@ -288,12 +288,12 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
         if (!isActive()) {
             return;
         }
-        long current = System.currentTimeMillis();
+        int current = Utils.milliSeconds();
 
-        long nextTsUpadte = -1;
-        long tsUp = kcpTsUpdate();
+        int nextTsUpadte = -1;
+        int tsUp = kcpTsUpdate();
         Throwable exception = null;
-        if (current >= tsUp) {
+        if (Utils.itimediff(current, tsUp) >= 0) {
             try {
                 nextTsUpadte = kcpUpdate(current);
             } catch (Throwable t) {
@@ -331,7 +331,7 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
     }
 
     private void updateKcp() {
-        long current = System.currentTimeMillis();
+        int current = Utils.milliSeconds();
         Throwable exception = null;
         try {
             kcpUpdate(current);

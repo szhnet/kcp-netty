@@ -63,7 +63,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
 
     private final KcpOutput output = new UkcpServerOutput();
 
-    private long tsUpdate = -1;
+    private int tsUpdate = -1;
 
     private boolean scheduleCloseWait = false;
 
@@ -313,8 +313,8 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
         }
 
         if (this.tsUpdate == -1) { // haven't schedule update
-            long current = System.currentTimeMillis();
-            long tsUp = ch.kcpCheck(current);
+            int current = Utils.milliSeconds();
+            int tsUp = ch.kcpCheck(current);
             ch.kcpTsUpdate(tsUp);
             scheduleUpdate(tsUp, current);
         }
@@ -322,7 +322,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
         return ch;
     }
 
-    private void scheduleUpdate(long tsUpdate, long current) {
+    private void scheduleUpdate(int tsUpdate, int current) {
         if (sheduleUpdateLog.isDebugEnabled()) {
             sheduleUpdateLog.debug("schedule delay: " + (tsUpdate - current));
         }
@@ -341,7 +341,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
         Ukcp ukcp = childChannel.ukcp();
         if (isActive() && ukcp.getState() != -1 && ukcp.checkFlush()) {
             ukcp.setClosed(false);
-            long current = System.currentTimeMillis();
+            int current = Utils.milliSeconds();
             closeWaitKcpMap.put(ukcp.channel().remoteAddress(), new CloseWaitKcp(ukcp, current + Consts
                     .CLOSE_WAIT_TIME));
             tryScheduleCloseWait();
@@ -363,8 +363,8 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
 
     @Override
     public void run() {
-        long current = System.currentTimeMillis();
-        long nextTsUpdate = -1;
+        int current = Utils.milliSeconds();
+        int nextTsUpdate = -1;
 
         for (Iterator<Map.Entry<SocketAddress, UkcpServerChildChannel>> itr = childChannelMapItr.rewind(); itr
                 .hasNext(); ) {
@@ -372,10 +372,10 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
             if (!childCh.isActive()) {
                 continue;
             }
-            long tsUp = childCh.kcpTsUpdate();
-            long nextTsUp = -1;
+            int tsUp = childCh.kcpTsUpdate();
+            int nextTsUp = -1;
             Throwable exception = null;
-            if (current >= tsUp) {
+            if (Utils.itimediff(current, tsUp) >= 0) {
                 try {
                     nextTsUp = childCh.kcpUpdate(current);
                 } catch (Throwable t) {
@@ -400,7 +400,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
             } else {
                 nextTsUp = tsUp;
             }
-            if (nextTsUp != -1 && (nextTsUpdate == -1 || nextTsUp < nextTsUpdate)) {
+            if (nextTsUp != -1 && (nextTsUpdate == -1 || Utils.itimediff(nextTsUpdate, nextTsUp) > 0)) {
                 nextTsUpdate = nextTsUp;
             }
         }
@@ -417,10 +417,10 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
                 CloseWaitKcp w = itr.next().getValue();
                 Ukcp ukcp = w.ukcp;
 
-                long tsUp = ukcp.getTsUpdate();
-                long nextTsUp = -1;
+                int tsUp = ukcp.getTsUpdate();
+                int nextTsUp = -1;
                 Throwable exception = null;
-                if (current >= tsUp) {
+                if (Utils.itimediff(current, tsUp) >= 0) {
                     try {
                         nextTsUp = ukcp.update(current);
                     } catch (Throwable t) {
@@ -441,7 +441,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
                 } else {
                     nextTsUp = tsUp;
                 }
-                if (nextTsUp != -1 && (nextTsUpdate == -1 || nextTsUp < nextTsUpdate)) {
+                if (nextTsUp != -1 && (nextTsUpdate == -1 || Utils.itimediff(nextTsUpdate, nextTsUp) > 0)) {
                     nextTsUpdate = nextTsUp;
                 }
             }
@@ -458,7 +458,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
     }
 
     void updateChildKcp(UkcpServerChildChannel childCh) {
-        long current = System.currentTimeMillis();
+        int current = Utils.milliSeconds();
         Throwable exception = null;
         try {
             childCh.kcpUpdate(current);
@@ -681,9 +681,9 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
 
         final Ukcp ukcp;
 
-        final long closeTime;
+        final int closeTime;
 
-        CloseWaitKcp(Ukcp ukcp, long closeTime) {
+        CloseWaitKcp(Ukcp ukcp, int closeTime) {
             this.ukcp = ukcp;
             this.closeTime = closeTime;
         }
@@ -695,11 +695,11 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
         public void run() {
             scheduleCloseWait = false;
 
-            long current = System.currentTimeMillis();
+            int current = Utils.milliSeconds();
             for (Iterator<Map.Entry<SocketAddress, CloseWaitKcp>> itr = closeWaitKcpMapItr.rewind(); itr.hasNext(); ) {
                 CloseWaitKcp w = itr.next().getValue();
                 Ukcp ukcp = w.ukcp;
-                if (current >= w.closeTime) {
+                if (Utils.itimediff(current, w.closeTime) >= 0) {
                     ukcp.setKcpClosed();
                     itr.remove();
                     if (log.isDebugEnabled()) {

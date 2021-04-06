@@ -130,8 +130,8 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
             javaChannel().connect(remoteAddress);
             success = true;
 
-            long current = System.currentTimeMillis(); // schedule update
-            long tsUp = ukcpChannel.kcpCheck(current);
+            int current = Utils.milliSeconds(); // schedule update
+            int tsUp = ukcpChannel.kcpCheck(current);
             ukcpChannel.kcpTsUpdate(tsUp);
             ukcpChannel.scheduleUpdate(tsUp, current);
 

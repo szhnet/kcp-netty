@@ -24,7 +24,7 @@ public class Ukcp {
 
     private boolean mergeSegmentBuf = true;
 
-    private long tsUpdate = -1;
+    private int tsUpdate = -1;
 
     private volatile boolean active;
 
@@ -138,9 +138,9 @@ public class Ukcp {
      * @param current current time in milliseconds
      * @return the next time to update
      */
-    public long update(long current) {
+    public int update(int current) {
         kcp.update(current);
-        long nextTsUp = check(current);
+        int nextTsUp = check(current);
         setTsUpdate(nextTsUp);
 
         return nextTsUp;
@@ -151,9 +151,9 @@ public class Ukcp {
      *
      * @param current current time in milliseconds
      * @return
-     * @see Kcp#check(long)
+     * @see Kcp#check(int)
      */
-    public long check(long current) {
+    public int check(int current) {
         return kcp.check(current);
     }
 
@@ -376,11 +376,11 @@ public class Ukcp {
         return this;
     }
 
-    public long getTsUpdate() {
+    public int getTsUpdate() {
         return tsUpdate;
     }
 
-    public Ukcp setTsUpdate(long tsUpdate) {
+    public Ukcp setTsUpdate(int tsUpdate) {
         this.tsUpdate = tsUpdate;
         return this;
     }

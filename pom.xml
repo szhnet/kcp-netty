@@ -6,7 +6,7 @@
 
     <groupId>io.jpower.kcp</groupId>
     <artifactId>kcp-parent</artifactId>
-    <version>1.4.9</version>
+    <version>1.4.10</version>
     <packaging>pom</packaging>
 
     <name>kcp-netty [Parent]</name>
@@ -18,8 +18,8 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <netty.version>4.1.49.Final</netty.version>
-        <slf4j.version>1.7.25</slf4j.version>
+        <netty.version>4.1.52.Final</netty.version>
+        <slf4j.version>1.7.30</slf4j.version>
     </properties>
 
     <licenses>
@@ -101,17 +101,17 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.6.1</version>
+                    <version>3.8.1</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-source-plugin</artifactId>
-                    <version>3.0.1</version>
+                    <version>3.2.1</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
-                    <version>2.10.4</version>
+                    <version>3.2.0</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
