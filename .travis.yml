@@ -2,9 +2,8 @@ dist: xenial
 
 language: java
 
-jdk:
-- openjdk8
+jdk: openjdk8
 
 notifications:
   email:
-  - szhnet@gmail.com
+    - szhnet@gmail.com
