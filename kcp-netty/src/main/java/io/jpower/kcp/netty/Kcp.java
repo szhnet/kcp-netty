@@ -331,6 +331,7 @@ public class Kcp {
         for (Segment seg : segQueue) {
             seg.recycle(true);
         }
+        segQueue.clear();
     }
 
     private ByteBuf tryCreateOrOutput(ByteBuf buffer, int need) {

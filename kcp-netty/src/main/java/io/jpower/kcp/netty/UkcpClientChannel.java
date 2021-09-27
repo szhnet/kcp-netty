@@ -222,6 +222,10 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
         return this;
     }
 
+    public boolean kcpIsActive() {
+        return ukcp.isActive();
+    }
+
     void kcpReceive(ByteBuf buf) throws IOException {
         ukcp.receive(buf);
     }

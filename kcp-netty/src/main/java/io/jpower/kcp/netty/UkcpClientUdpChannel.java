@@ -295,7 +295,7 @@ final class UkcpClientUdpChannel extends AbstractNioMessageChannel {
                     exception1 = t;
                 }
 
-                if (exception1 == null) {
+                if (exception1 == null && ukcpChannel.kcpIsActive()) {
                     boolean mergeSegmentBuf = ukcpChannel.config().isMergeSegmentBuf();
                     CodecOutputList<ByteBuf> recvBufList = null;
                     boolean recv = false;
