@@ -9,7 +9,7 @@ To add a dependency using Maven:
 <dependency>
     <groupId>io.jpower.kcp</groupId>
     <artifactId>kcp-netty</artifactId>
-    <version>1.4.12</version>
+    <version>1.4.13</version>
 </dependency>
 ```
 
