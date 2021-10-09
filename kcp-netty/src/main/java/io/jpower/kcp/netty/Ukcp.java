@@ -24,7 +24,7 @@ public class Ukcp {
 
     private boolean mergeSegmentBuf = true;
 
-    private int tsUpdate = -1;
+    private int tsUpdate;
 
     private volatile boolean active;
 

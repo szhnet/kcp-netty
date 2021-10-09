@@ -147,7 +147,7 @@ public final class UkcpServerChildChannel extends AbstractChannel implements Ukc
             if (ukcp.isFastFlush()) {
                 parent().updateChildKcp(this);
             } else {
-                kcpTsUpdate(-1);
+                kcpTsUpdate(Utils.milliSeconds());
             }
         }
     }

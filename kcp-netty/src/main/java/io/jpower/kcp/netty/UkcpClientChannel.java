@@ -41,7 +41,9 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
 
     private final KcpOutput output = new UkcpClientOutput();
 
-    private int tsUpdate = -1;
+    private int tsUpdate;
+
+    private boolean scheduleUpdate;
 
     private boolean flushPending;
 
@@ -184,7 +186,7 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
             if (ukcp.isFastFlush()) {
                 updateKcp();
             } else {
-                kcpTsUpdate(-1);
+                kcpTsUpdate(Utils.milliSeconds());
             }
         }
     }
@@ -284,6 +286,7 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
             sheduleUpdateLog.debug("schedule delay: " + (tsUpdate - current));
         }
         this.tsUpdate = tsUpdate;
+        this.scheduleUpdate = true;
         eventLoop().schedule(this, tsUpdate - current, TimeUnit.MILLISECONDS);
     }
 
@@ -294,12 +297,14 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
         }
         int current = Utils.milliSeconds();
 
-        int nextTsUpadte = -1;
+        int nextTsUpdate = 0;
+        boolean nextSchedule = false;
         int tsUp = kcpTsUpdate();
         Throwable exception = null;
         if (Utils.itimediff(current, tsUp) >= 0) {
             try {
-                nextTsUpadte = kcpUpdate(current);
+                nextTsUpdate = kcpUpdate(current);
+                nextSchedule = true;
             } catch (Throwable t) {
                 exception = t;
             }
@@ -311,21 +316,24 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
                 exception = new KcpException("State=-1 after update()");
             }
         } else {
-            nextTsUpadte = tsUp;
+            nextTsUpdate = tsUp;
+            nextSchedule = true;
         }
 
         boolean close = false;
         if (exception != null) {
             close = true;
-            nextTsUpadte = -1;
+            nextTsUpdate = 0;
+            nextSchedule = false;
         } else {
             if (isFlushPending() && kcpCanSend()) {
                 unsafe().forceFlush();
             }
         }
 
-        tsUpdate = nextTsUpadte;
-        if (tsUpdate != -1) {
+        this.tsUpdate = nextTsUpdate;
+        this.scheduleUpdate = nextSchedule;
+        if (nextSchedule) {
             scheduleUpdate(tsUpdate, current);
         }
 
