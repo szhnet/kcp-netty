@@ -545,7 +545,7 @@ public class Kcp {
             count = (len + mss - 1) / mss;
         }
 
-        if (count >= IKCP_WND_RCV) { // Maybe don't need the conditon in stream mode
+        if (!stream && count > 255) { // Maybe don't need the conditon in stream mode
             return -2;
         }
 
@@ -1027,7 +1027,7 @@ public class Kcp {
                     if (log.isDebugEnabled()) {
                         log.debug("{} fastresend. sn={}, xmit={}, resendts={} ", this, segment.sn, segment.xmit,
                                 (segment
-                                .resendts - current));
+                                        .resendts - current));
                     }
                 }
             }
