@@ -1,5 +1,6 @@
 package io.jpower.kcp.netty;
 
+import java.security.SecureRandom;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -22,6 +23,8 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 public class Kcp {
 
     private static final InternalLogger log = InternalLoggerFactory.getInstance(Kcp.class);
+    
+    private static final SecureRandom secureRandom = new SecureRandom();
 
     /**
      * no delay min rto
@@ -67,12 +70,12 @@ public class Kcp {
      */
     public static final int IKCP_ASK_TELL = 2;
 
-    public static final int IKCP_WND_SND = 32;
+    public static final int IKCP_WND_SND = 256;
 
     /**
      * must >= max fragment size
      */
-    public static final int IKCP_WND_RCV = 128;
+    public static final int IKCP_WND_RCV = 256;
 
     public static final int IKCP_MTU_DEF = 1400;
 
@@ -80,7 +83,7 @@ public class Kcp {
 
     public static final int IKCP_INTERVAL = 100;
 
-    public static final int IKCP_OVERHEAD = 24;
+    public static final int IKCP_OVERHEAD = 28;
 
     public static final int IKCP_DEADLINK = 20;
 
@@ -103,7 +106,7 @@ public class Kcp {
      */
     public static final int IKCP_FASTACK_LIMIT = 5;
 
-    private int conv;
+    private long conv;
 
     private int mtu = IKCP_MTU_DEF;
 
@@ -218,7 +221,7 @@ public class Kcp {
         return (int) (later - earlier);
     }
 
-    private static void output(ByteBuf data, Kcp kcp) {
+    protected static void output(ByteBuf data, Kcp kcp) {
         if (log.isDebugEnabled()) {
             log.debug("{} [RO] {} bytes", kcp, data.readableBytes());
         }
@@ -231,7 +234,7 @@ public class Kcp {
     private static int encodeSeg(ByteBuf buf, Segment seg) {
         int offset = buf.writerIndex();
 
-        buf.writeIntLE(seg.conv);
+        buf.writeLong(seg.conv);
         buf.writeByte(seg.cmd);
         buf.writeByte(seg.frg);
         buf.writeShortLE(seg.wnd);
@@ -247,7 +250,7 @@ public class Kcp {
 
         private final Handle<Segment> recyclerHandle;
 
-        private int conv;
+        private long conv;
 
         private byte cmd;
 
@@ -315,7 +318,7 @@ public class Kcp {
 
     }
 
-    public Kcp(int conv, KcpOutput output) {
+    public Kcp(long conv, KcpOutput output) {
         this.conv = conv;
         this.output = output;
     }
@@ -726,8 +729,8 @@ public class Kcp {
         }
 
         while (true) {
-            int conv, len, wnd, ts;
-            long sn, una;
+            int len, wnd, ts;
+            long conv, sn, una;
             byte cmd;
             short frg;
             Segment seg;
@@ -736,7 +739,7 @@ public class Kcp {
                 break;
             }
 
-            conv = data.readIntLE();
+            conv = data.readLong();
             if (conv != this.conv && !(this.conv == 0 && autoSetConv)) {
                 return -4;
             }
@@ -1275,12 +1278,24 @@ public class Kcp {
         return this.sndBuf.size() + this.sndQueue.size();
     }
 
-    public int getConv() {
+    public long getConv() {
         return conv;
     }
 
-    public void setConv(int conv) {
+    public void setConv(long conv) {
         this.conv = conv;
+    }
+    
+    public int getConv1() {
+    	return (int) (this.conv >> 32);
+    }
+    
+    public int getConv2() {
+    	return (int) (this.conv & 0xFFFFFFFFL);
+    }
+    
+    protected void generateConv() {
+    	this.conv = secureRandom.nextLong();
     }
 
     public Object getUser() {

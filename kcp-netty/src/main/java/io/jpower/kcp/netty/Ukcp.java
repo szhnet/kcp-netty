@@ -1,10 +1,12 @@
 package io.jpower.kcp.netty;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
@@ -34,7 +36,7 @@ public class Ukcp {
      * @param conv   conv of kcp
      * @param output output for kcp
      */
-    public Ukcp(int conv, KcpOutput output) {
+    public Ukcp(long conv, KcpOutput output) {
         Kcp kcp = new Kcp(conv, output);
         this.kcp = kcp;
         this.active = true;
@@ -64,8 +66,68 @@ public class Ukcp {
     public void receive(List<ByteBuf> bufList) {
         kcp.recv(bufList);
     }
+    
+    // Handle handshake
+    public void handleEnet(ByteBuf data) {
+    	if (data == null || data.readableBytes() != 20) {
+            return;
+        }
+    	
+    	// Get
+    	int code = data.readInt();
+    	data.readUnsignedInt(); // Empty
+    	data.readUnsignedInt(); // Empty
+    	int enet = data.readInt();
+    	data.readUnsignedInt();
+
+    	switch (code) {
+	    	case 255: // Connect + Handshake
+	    		if (this.getConv() == 0) {
+	    			this.sendHandshakeRsp(enet);
+	    		}
+	    		break;
+	    	case 404: // Disconnect
+	    		sendDisconnectPacket(this.getConv(), 1);
+	        	this.channel().close();
+	    		break;
+    	}
+    }
+    
+    private void sendHandshakeRsp(int enet) {
+    	// Create conv
+    	this.kcp.generateConv();
+    	
+    	ByteBuf packet = Unpooled.buffer(20);
+    	packet.writeInt(325);
+    	packet.writeIntLE(kcp.getConv1());
+    	packet.writeIntLE(kcp.getConv2());
+    	packet.writeInt(enet);
+    	packet.writeInt(340870469); // constant?
+    	
+    	// Send
+    	Kcp.output(packet, this.kcp);
+    }
+    
+    public void sendDisconnectPacket(long conv, int code) {
+    	ByteBuf packet = Unpooled.buffer(20);
+    	packet.writeInt(404);
+    	packet.writeIntLE((int) (conv >> 32));
+    	packet.writeIntLE((int) (conv & 0xFFFFFFFFL));
+    	packet.writeInt(code);
+    	packet.writeInt(423728276); // constant?
+    	
+    	// Send
+    	Kcp.output(packet, this.kcp);
+    }
 
     public void input(ByteBuf data) throws IOException {
+    	// Handle handshake/close
+    	if (data.readableBytes() == 20) {
+    		this.handleEnet(data);
+    		return;
+    	}
+    	
+    	// Handle kcp
         int ret = kcp.input(data);
         switch (ret) {
             case -1:
@@ -73,8 +135,10 @@ public class Ukcp {
             case -2:
                 throw new IOException("No enough bytes of data");
             case -3:
+            	this.sendDisconnectPacket(data.getLong(0), 5);
                 throw new IOException("Mismatch cmd");
             case -4:
+            	this.sendDisconnectPacket(data.getLong(0), 5);
                 throw new IOException("Conv inconsistency");
             default:
                 break;
@@ -184,7 +248,7 @@ public class Ukcp {
      *
      * @return conv of kcp
      */
-    public int getConv() {
+    public long getConv() {
         return kcp.getConv();
     }
 

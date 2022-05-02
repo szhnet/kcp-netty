@@ -107,6 +107,7 @@ public final class UkcpServerChildChannel extends AbstractChannel implements Ukc
 
     @Override
     protected void doClose() throws Exception {
+    	ukcp().sendDisconnectPacket(ukcp().getConv(), 5);
         parent().doCloseChildChannel(this); // callback parent
     }
 
@@ -180,7 +181,7 @@ public final class UkcpServerChildChannel extends AbstractChannel implements Ukc
         return ukcp;
     }
 
-    public int conv() {
+    public long conv() {
         return ukcp.getConv();
     }
 

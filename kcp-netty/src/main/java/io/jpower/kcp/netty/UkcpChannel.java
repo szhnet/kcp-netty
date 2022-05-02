@@ -9,7 +9,7 @@ import io.netty.channel.Channel;
  */
 public interface UkcpChannel extends Channel {
 
-    int conv();
+    long conv();
 
     @Override
     UkcpChannelConfig config();

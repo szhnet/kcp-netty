@@ -215,7 +215,7 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
         return flushPending;
     }
 
-    public int conv() {
+    public long conv() {
         return ukcp.getConv();
     }
 
