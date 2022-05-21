@@ -10,6 +10,7 @@ import io.jpower.kcp.netty.internal.ReItrLinkedList;
 import io.jpower.kcp.netty.internal.ReusableListIterator;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.channel.Channel;
 import io.netty.util.internal.ObjectPool;
 import io.netty.util.internal.ObjectPool.Handle;
 import io.netty.util.internal.logging.InternalLogger;
@@ -184,7 +185,7 @@ public class Kcp {
 
     private int ackcount;
 
-    private Object user;
+    private Channel user;
 
     private int fastresend;
 
@@ -221,14 +222,14 @@ public class Kcp {
         return (int) (later - earlier);
     }
 
-    protected static void output(ByteBuf data, Kcp kcp) {
+    protected void output(ByteBuf data) {
         if (log.isDebugEnabled()) {
-            log.debug("{} [RO] {} bytes", kcp, data.readableBytes());
+            log.debug("{} [RO] {} bytes", this, data.readableBytes());
         }
         if (data.readableBytes() == 0) {
             return;
         }
-        kcp.output.out(data, kcp);
+        this.output.out(data, this);
     }
 
     private static int encodeSeg(ByteBuf buf, Segment seg) {
@@ -341,7 +342,7 @@ public class Kcp {
         if (buffer == null) {
             buffer = createFlushByteBuf();
         } else if (buffer.readableBytes() + need > mtu) {
-            output(buffer, this);
+            output(buffer);
             buffer = createFlushByteBuf();
         }
         return buffer;
@@ -1061,7 +1062,7 @@ public class Kcp {
         // flash remain segments
         if (buffer != null) {
             if (buffer.readableBytes() > 0) {
-                output(buffer, this);
+                output(buffer);
             } else {
                 buffer.release();
             }
@@ -1298,11 +1299,11 @@ public class Kcp {
     	this.conv = secureRandom.nextLong();
     }
 
-    public Object getUser() {
+    public Channel getUser() {
         return user;
     }
 
-    public void setUser(Object user) {
+    public void setUser(Channel user) {
         this.user = user;
     }
 

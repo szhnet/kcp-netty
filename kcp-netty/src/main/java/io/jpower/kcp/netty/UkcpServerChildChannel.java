@@ -32,19 +32,23 @@ public final class UkcpServerChildChannel extends AbstractChannel implements Ukc
     private final DefaultUkcpServerChildChannelConfig config;
 
     private final Ukcp ukcp;
-
-    private final InetSocketAddress remoteAddress;
+    private InetSocketAddress socketAddress=null;
 
     private boolean flushPending;
 
-    UkcpServerChildChannel(Channel parent, Ukcp ukcp, InetSocketAddress remoteAddress) {
+    UkcpServerChildChannel(Channel parent, Ukcp ukcp) {
         super(parent);
         this.config = new DefaultUkcpServerChildChannelConfig(this, ukcp);
         ukcp.channel(this);
         this.ukcp = ukcp;
-        this.remoteAddress = remoteAddress;
     }
-
+    public void setSocketAddress(InetSocketAddress socketAddress){
+        System.out.println("socketAddress update:"+socketAddress.toString());
+        this.socketAddress=socketAddress;
+    }
+    public InetSocketAddress getSocketAddress(){
+        return socketAddress;
+    }
     @Override
     public UkcpServerChannel parent() {
         return (UkcpServerChannel) super.parent();
@@ -92,8 +96,10 @@ public final class UkcpServerChildChannel extends AbstractChannel implements Ukc
 
     @Override
     protected SocketAddress remoteAddress0() {
-        return remoteAddress;
+        System.out.println("remoteAddress0 CALLED! socketAddress="+socketAddress);
+        return getSocketAddress();
     }
+
 
     @Override
     protected void doBind(SocketAddress localAddress) throws Exception {

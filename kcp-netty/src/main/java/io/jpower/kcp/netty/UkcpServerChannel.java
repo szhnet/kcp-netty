@@ -51,9 +51,9 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
 
     private final DefaultUkcpServerChannelConfig config;
 
-    private final ReItrHashMap<SocketAddress, UkcpServerChildChannel> childChannelMap = new ReItrHashMap<>();
+    private final ReItrHashMap<Long, UkcpServerChildChannel> childChannelMap = new ReItrHashMap<>();
 
-    private final ReusableIterator<Map.Entry<SocketAddress, UkcpServerChildChannel>> childChannelMapItr =
+    private final ReusableIterator<Map.Entry<Long, UkcpServerChildChannel>> childChannelMapItr =
             childChannelMap.entrySet().iterator();
 
     private final ReItrHashMap<SocketAddress, CloseWaitKcp> closeWaitKcpMap = new ReItrHashMap<>();
@@ -69,11 +69,11 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
 
     private boolean scheduleCloseWait = false;
 
-    private List<UkcpServerChildChannel> writeChannels = new ArrayList<>();
+    private final List<UkcpServerChildChannel> writeChannels = new ArrayList<>();
 
-    private List<Object> closeChildList = new ArrayList<>();
+    private final List<Object> closeChildList = new ArrayList<>();
 
-    private Runnable closeWaitRunner = new CloseWaitRun();
+    private final Runnable closeWaitRunner = new CloseWaitRun();
 
     private static DatagramChannel newSocket(SelectorProvider provider) {
         try {
@@ -160,7 +160,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
             exception = t;
         }
         // close child channel
-        for (Iterator<Map.Entry<SocketAddress, UkcpServerChildChannel>> itr = childChannelMapItr.rewind(); itr
+        for (Iterator<Map.Entry<Long, UkcpServerChildChannel>> itr = childChannelMapItr.rewind(); itr
                 .hasNext(); ) {
             UkcpServerChildChannel childCh = itr.next().getValue();
             Unsafe childUnsafe = childCh.unsafe();
@@ -284,7 +284,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
     }
 
     @Override
-    protected void doFinishConnect() throws Exception {
+    protected void doFinishConnect() {
         throw new UnsupportedOperationException();
     }
 
@@ -293,25 +293,28 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
         throw new UnsupportedOperationException();
     }
 
-    private UkcpServerChildChannel getOrCreateUkcpChannel(InetSocketAddress remoteAddress) {
-        UkcpServerChildChannel ch = childChannelMap.get(remoteAddress);
+    private UkcpServerChildChannel getOrCreateUkcpChannel(InetSocketAddress socketAddress,long conv) {
+        UkcpServerChildChannel ch = childChannelMap.get(conv);
         if (ch == null) {
-            ch = createChildChannel(remoteAddress);
-            childChannelMap.put(remoteAddress, ch);
+            ch = createChildChannel(socketAddress,conv);
+            childChannelMap.put(conv, ch);
+        }else{
+            ch.setSocketAddress(socketAddress);
         }
         return ch;
     }
 
-    private UkcpServerChildChannel createChildChannel(InetSocketAddress remoteAddress) {
-        Ukcp ukcp = new Ukcp(0, output); // temp conv, need to set conv in outter
-        UkcpServerChildChannel ch = new UkcpServerChildChannel(this, ukcp, remoteAddress);
+    private UkcpServerChildChannel createChildChannel(InetSocketAddress socketAddress,long conv) {
+        Ukcp ukcp = new Ukcp(conv, output); // temp conv, need to set conv in outter
+        UkcpServerChildChannel ch = new UkcpServerChildChannel(this, ukcp);
+        ch.setSocketAddress(socketAddress);
 
         ChannelPipeline pipeline = pipeline();
         pipeline.fireChannelRead(ch);
         pipeline.fireChannelReadComplete();
 
         if (log.isDebugEnabled()) {
-            log.debug("Create childChannel. remoteAddress={}", remoteAddress);
+            log.debug("Create childChannel. conv={}", conv);
         }
 
         if (!this.scheduleUpdate) { // haven't schedule update
@@ -334,7 +337,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
     }
 
     void doCloseChildChannel(UkcpServerChildChannel childChannel) {
-        UkcpServerChildChannel rmCh = childChannelMap.remove(childChannel.remoteAddress());
+        UkcpServerChildChannel rmCh = childChannelMap.remove(childChannel.conv());
         if (rmCh == null) {
             log.error("Not found childChannel. remoteAddress={}", childChannel.remoteAddress());
         }
@@ -370,7 +373,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
         int nextTsUpdate = 0;
         boolean nextSchedule = false;
 
-        for (Iterator<Map.Entry<SocketAddress, UkcpServerChildChannel>> itr = childChannelMapItr.rewind(); itr
+        for (Iterator<Map.Entry<Long, UkcpServerChildChannel>> itr = childChannelMapItr.rewind(); itr
                 .hasNext(); ) {
             UkcpServerChildChannel childCh = itr.next().getValue();
             if (!childCh.isActive()) {
@@ -545,6 +548,8 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
                     UkcpPacket packet = (UkcpPacket) readBuf.get(i);
                     InetSocketAddress remoteAddress = packet.remoteAddress();
                     ByteBuf byteBuf = packet.content();
+                    long conv = byteBuf.readLong();
+                    byteBuf.resetReaderIndex();
 
                     CloseWaitKcp closeWaitKcp = closeWaitKcpMap.get(remoteAddress);
                     if (closeWaitKcp != null) {
@@ -576,7 +581,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
                             log.error("Terminate closeWaitKcp. ukcp={}, cause={}", ukcp, "read error", subException);
                         }
                     } else {
-                        UkcpServerChildChannel childCh = getOrCreateUkcpChannel(remoteAddress);
+                        UkcpServerChildChannel childCh = getOrCreateUkcpChannel(remoteAddress,conv);
                         if (!childCh.isActive()) {
                             packet.release();
                             continue;
@@ -672,9 +677,11 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
         @Override
         public void out(ByteBuf data, Kcp kcp) {
             UkcpServerChildChannel channel = (UkcpServerChildChannel) kcp.getUser();
+            InetSocketAddress address = channel.getSocketAddress();
             NioUnsafe unsafe = unsafe();
-            unsafe.write(UkcpPacket.newInstance(data, channel.remoteAddress()), unsafe.voidPromise());
+            unsafe.write(UkcpPacket.newInstance(data,address), unsafe.voidPromise());
             unsafe.flush();
+            System.out.println("socketAddress send:"+address);
         }
 
     }

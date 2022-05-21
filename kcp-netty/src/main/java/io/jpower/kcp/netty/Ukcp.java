@@ -1,11 +1,13 @@
 package io.jpower.kcp.netty;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.List;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.util.internal.logging.InternalLogger;
@@ -20,7 +22,7 @@ public class Ukcp {
 
     private static final InternalLogger log = InternalLoggerFactory.getInstance(Ukcp.class);
 
-    private Kcp kcp;
+    private final Kcp kcp;
 
     private boolean fastFlush = true;
 
@@ -37,8 +39,7 @@ public class Ukcp {
      * @param output output for kcp
      */
     public Ukcp(long conv, KcpOutput output) {
-        Kcp kcp = new Kcp(conv, output);
-        this.kcp = kcp;
+        this.kcp = new Kcp(conv, output);
         this.active = true;
     }
 
@@ -82,18 +83,23 @@ public class Ukcp {
 
     	switch (code) {
 	    	case 255: // Connect + Handshake
-	    		if (this.getConv() == 0) {
-	    			this.sendHandshakeRsp(enet);
-	    		}
+                System.out.println("Send Connect + Handshake");
+                this.sendHandshakeRsp(enet);
 	    		break;
 	    	case 404: // Disconnect
+                System.out.println("Send Disconnect");
 	    		sendDisconnectPacket(this.getConv(), 1);
 	        	this.channel().close();
 	    		break;
+            default:
+                data.resetReaderIndex();
+                System.out.println("Unknown handle pack["+code+"]:"+ByteBufUtil.prettyHexDump(data));
+                break;
     	}
     }
     
     private void sendHandshakeRsp(int enet) {
+        System.out.println("sendHandshakeRsp!!!!!");
     	// Create conv
     	this.kcp.generateConv();
     	
@@ -105,7 +111,7 @@ public class Ukcp {
     	packet.writeInt(340870469); // constant?
     	
     	// Send
-    	Kcp.output(packet, this.kcp);
+        this.kcp.output(packet);
     }
     
     public void sendDisconnectPacket(long conv, int code) {
@@ -117,7 +123,7 @@ public class Ukcp {
     	packet.writeInt(423728276); // constant?
     	
     	// Send
-    	Kcp.output(packet, this.kcp);
+        this.kcp.output(packet);
     }
 
     public void input(ByteBuf data) throws IOException {
@@ -138,6 +144,8 @@ public class Ukcp {
             	this.sendDisconnectPacket(data.getLong(0), 5);
                 throw new IOException("Mismatch cmd");
             case -4:
+                data.resetReaderIndex();
+                System.out.println("Conv inconsistency["+kcp.getConv()+"]:"+ByteBufUtil.prettyHexDump(data));
             	this.sendDisconnectPacket(data.getLong(0), 5);
                 throw new IOException("Conv inconsistency");
             default:
@@ -257,7 +265,7 @@ public class Ukcp {
      *
      * @param conv the conv of kcp
      */
-    public void setConv(int conv) {
+    public void setConv(long conv) {
         kcp.setConv(conv);
     }
 
