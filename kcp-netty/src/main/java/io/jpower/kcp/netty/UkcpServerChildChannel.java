@@ -43,7 +43,7 @@ public final class UkcpServerChildChannel extends AbstractChannel implements Ukc
         this.ukcp = ukcp;
     }
     public void setSocketAddress(InetSocketAddress socketAddress){
-        System.out.println("socketAddress update:"+socketAddress.toString());
+        //System.out.println("socketAddress update:"+socketAddress.toString());
         this.socketAddress=socketAddress;
     }
     public InetSocketAddress getSocketAddress(){
@@ -96,7 +96,7 @@ public final class UkcpServerChildChannel extends AbstractChannel implements Ukc
 
     @Override
     protected SocketAddress remoteAddress0() {
-        System.out.println("remoteAddress0 CALLED! socketAddress="+socketAddress);
+        //System.out.println("remoteAddress0 CALLED! socketAddress="+socketAddress);
         return getSocketAddress();
     }
 

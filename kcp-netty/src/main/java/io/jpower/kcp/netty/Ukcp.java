@@ -83,23 +83,21 @@ public class Ukcp {
 
     	switch (code) {
 	    	case 255: // Connect + Handshake
-                System.out.println("Send Connect + Handshake");
                 this.sendHandshakeRsp(enet);
 	    		break;
 	    	case 404: // Disconnect
-                System.out.println("Send Disconnect");
 	    		sendDisconnectPacket(this.getConv(), 1);
 	        	this.channel().close();
 	    		break;
             default:
-                data.resetReaderIndex();
-                System.out.println("Unknown handle pack["+code+"]:"+ByteBufUtil.prettyHexDump(data));
+                ///data.resetReaderIndex();
+                //System.out.println("Unknown handle pack["+code+"]:"+ByteBufUtil.prettyHexDump(data));
                 break;
     	}
     }
     
     private void sendHandshakeRsp(int enet) {
-        System.out.println("sendHandshakeRsp!!!!!");
+        //System.out.println("sendHandshakeRsp!!!!!");
     	// Create conv
     	this.kcp.generateConv();
     	
@@ -144,8 +142,8 @@ public class Ukcp {
             	this.sendDisconnectPacket(data.getLong(0), 5);
                 throw new IOException("Mismatch cmd");
             case -4:
-                data.resetReaderIndex();
-                System.out.println("Conv inconsistency["+kcp.getConv()+"]:"+ByteBufUtil.prettyHexDump(data));
+                //data.resetReaderIndex();
+                //System.out.println("Conv inconsistency["+kcp.getConv()+"]:"+ByteBufUtil.prettyHexDump(data));
             	this.sendDisconnectPacket(data.getLong(0), 5);
                 throw new IOException("Conv inconsistency");
             default:

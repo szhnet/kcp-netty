@@ -681,7 +681,7 @@ public final class UkcpServerChannel extends AbstractNioMessageChannel implement
             NioUnsafe unsafe = unsafe();
             unsafe.write(UkcpPacket.newInstance(data,address), unsafe.voidPromise());
             unsafe.flush();
-            System.out.println("socketAddress send:"+address);
+            //System.out.println("socketAddress send:"+address);
         }
 
     }
