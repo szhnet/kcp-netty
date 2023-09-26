@@ -6,7 +6,7 @@
 
     <groupId>io.jpower.kcp</groupId>
     <artifactId>kcp-parent</artifactId>
-    <version>1.5.1</version>
+    <version>1.5.2</version>
     <packaging>pom</packaging>
 
     <name>kcp-netty [Parent]</name>
@@ -154,7 +154,7 @@
         </profile>
 
         <profile>
-            <id>release</id>
+            <id>deploy</id>
             <build>
                 <plugins>
                     <plugin>
