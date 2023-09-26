@@ -513,6 +513,7 @@ public class Kcp {
             return -1;
         }
 
+        int send = 0;
         // append to previous segment in streaming mode (if possible)
         if (stream) {
             if (!sndQueue.isEmpty()) {
@@ -531,8 +532,9 @@ public class Kcp {
                     lastData.writeBytes(buf, extend);
 
                     len = buf.readableBytes();
+                    send = extend;
                     if (len == 0) {
-                        return 0;
+                        return send;
                     }
                 }
             }
@@ -545,7 +547,7 @@ public class Kcp {
             count = (len + mss - 1) / mss;
         }
 
-        if (!stream && count > 255) { // Maybe don't need the conditon in stream mode
+        if (!stream && count >= IKCP_WND_RCV) { // Maybe don't need the condition in stream mode
             return -2;
         }
 
@@ -560,9 +562,10 @@ public class Kcp {
             seg.frg = (short) (stream ? 0 : count - i - 1);
             sndQueue.add(seg);
             len = buf.readableBytes();
+            send += size;
         }
 
-        return 0;
+        return send;
     }
 
     private void updateAck(int rtt) {
@@ -1265,7 +1268,7 @@ public class Kcp {
             this.sndWnd = sndWnd;
         }
         if (rcvWnd > 0) {
-            this.rcvWnd = rcvWnd;
+            this.rcvWnd = Math.max(rcvWnd, IKCP_WND_RCV);
         }
 
         return 0;

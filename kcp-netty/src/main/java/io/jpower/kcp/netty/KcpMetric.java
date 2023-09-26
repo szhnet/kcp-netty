@@ -53,4 +53,20 @@ public class KcpMetric {
         this.maxSegXmit = maxSegXmit;
     }
 
+    @Override
+    public String toString() {
+        return "KcpMetric(" +
+                "kcp=" + kcp +
+                ", srtt=" + srtt() +
+                ", rttvar=" + rttvar() +
+                ", rto=" + rto() +
+                ", sndNxt=" + sndNxt() +
+                ", sndUna=" + sndUna() +
+                ", rcvNxt=" + rcvNxt() +
+                ", cwnd=" + cwnd() +
+                ", xmit=" + xmit() +
+                ", maxSegXmit=" + maxSegXmit +
+                ')';
+    }
+
 }
