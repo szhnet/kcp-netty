@@ -16,7 +16,7 @@ To add a dependency using Maven:
 ## How to use
 You can find the examples in the [examples][20] directory.
 
-[1]: https://github.com/szhnet/kcp-netty/actions/workflows/maven.yml/badge.svg
+[1]: https://github.com/szhnet/kcp-netty/actions/workflows/build.yml/badge.svg
 [3]: https://img.shields.io/badge/KCP-Powered-blue.svg
 [4]: https://github.com/skywind3000/kcp
 [5]: https://img.shields.io/badge/Netty-Powered-blue.svg
