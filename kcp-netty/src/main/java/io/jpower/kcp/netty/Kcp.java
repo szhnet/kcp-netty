@@ -1133,7 +1133,10 @@ public class Kcp {
         } else {
             tsFlush = this.current + interval;
         }
-        flush();
+
+        if(checkFlushRequired()) {
+            flush();
+        }
     }
 
     /**
@@ -1199,6 +1202,65 @@ public class Kcp {
         if (sndQueue.size() > 0) {
             return true;
         }
+        return false;
+    }
+
+    /**
+     * Checks if flush should be called this update.
+     * @return boolean
+     */
+    private boolean checkFlushRequired() {
+        if (ackcount > 0) {
+            return true;
+        }
+
+        // TODO: this is not fully accurate
+        if (probe != 0) {
+            return true;
+        }
+
+        // move data from snd_queue to snd_buf
+        if (sndQueue.size() > 0) {
+            // no cwnd yet should run flush
+            if(cwnd == 0) {
+                return true;
+            }
+
+            // calculate window size
+            int cwnd0 = Math.min(sndWnd, rmtWnd);
+            if (!nocwnd) {
+                cwnd0 = Math.min(this.cwnd, cwnd0);
+            }
+
+            if(itimediff(sndNxt, sndUna + cwnd0) < 0) {
+                return true;
+            }
+        }
+
+        if (sndBuf.size() > 0) {
+            long current = this.current;
+
+            // calculate resent
+            int resent = fastresend > 0 ? fastresend : Integer.MAX_VALUE;
+            int rtomin = nodelay ? 0 : (rxRto >> 3);
+
+            // flush data segments
+            int change = 0;
+            boolean lost = false;
+            for (Iterator<Segment> itr = sndBufItr.rewind(); itr.hasNext(); ) {
+                Segment segment = itr.next();
+                if (segment.xmit == 0) {
+                    return true;
+                } else if (itimediff(current, segment.resendts) >= 0) {
+                    return true;
+                } else if (segment.fastack >= resent) {
+                    if (segment.xmit <= fastlimit || fastlimit <= 0) {
+                        return true;
+                    }
+                }
+            }
+        }
+
         return false;
     }
 
