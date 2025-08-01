@@ -5,6 +5,8 @@ import static io.jpower.kcp.netty.Consts.sheduleUpdateLog;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.channels.DatagramChannel;
+import java.nio.channels.spi.SelectorProvider;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -52,6 +54,19 @@ public final class UkcpClientChannel extends AbstractChannel implements UkcpChan
     public UkcpClientChannel() {
         super(null);
         this.udpChannel = new UkcpClientUdpChannel(this);
+        this.ukcp = createUkcp();
+        this.config = new DefaultUkcpClientChannelConfig(this, ukcp, udpChannel.javaChannel().socket());
+    }
+    public UkcpClientChannel(SelectorProvider provider) {
+        super(null);
+        this.udpChannel = new UkcpClientUdpChannel(this,provider);
+        this.ukcp = createUkcp();
+        this.config = new DefaultUkcpClientChannelConfig(this, ukcp, udpChannel.javaChannel().socket());
+    }
+
+    public UkcpClientChannel(DatagramChannel socket) {
+        super(null);
+        this.udpChannel = new UkcpClientUdpChannel(this,socket);
         this.ukcp = createUkcp();
         this.config = new DefaultUkcpClientChannelConfig(this, ukcp, udpChannel.javaChannel().socket());
     }
