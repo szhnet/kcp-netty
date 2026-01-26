@@ -847,16 +847,27 @@ public class Kcp {
         }
 
         if (itimediff(sndUna, oldSndUna) > 0) {
+            // Calculate send window advancement (sequence numbers acknowledged)
+            // Note: This measures how far sndUna advanced, which includes both newly
+            // acknowledged segments and any previously ACKed segments that filled holes
+            int acked = (int) (sndUna - oldSndUna);
             if (cwnd < rmtWnd) {
                 int mss = this.mss;
                 if (cwnd < ssthresh) {
-                    cwnd++;
-                    incr += mss;
+                    // Slow start: increase cwnd by number of segments acknowledged (exponential growth)
+                    // Calculate safe increase that doesn't overshoot ssthresh
+                    // https://datatracker.ietf.org/doc/html/rfc5681#page-6
+                    int safe_incr = Math.min(acked, ssthresh - cwnd);
+                    cwnd += safe_incr;
+                    incr += safe_incr * mss;
                 } else {
+                    // Congestion avoidance: additive increase proportional to segments acknowledged
+                    // Increment cwnd by roughly 1 segment per RTT
+                    // https://datatracker.ietf.org/doc/html/rfc5681#page-7
                     if (incr < mss) {
                         incr = mss;
                     }
-                    incr += (mss * mss) / incr + (mss / 16);
+                    incr += (acked * mss * mss) / incr + (acked * mss / 16);
                     if ((cwnd + 1) * mss <= incr) {
                         cwnd++;
                     }
