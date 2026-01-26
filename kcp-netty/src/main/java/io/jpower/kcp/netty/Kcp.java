@@ -547,7 +547,9 @@ public class Kcp {
             count = (len + mss - 1) / mss;
         }
 
-        if (!stream && count >= IKCP_WND_RCV) { // Maybe don't need the condition in stream mode
+        // frg field is 1 byte long => message over 256 fragments long can not be sent if stream==false
+        // if in stream mode, frg is always 0
+        if (!stream && count >= 256) {
             return -2;
         }
 
