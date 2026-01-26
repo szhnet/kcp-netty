@@ -1,14 +1,14 @@
 package io.jpower.kcp.netty.internal;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Collections;
 import java.util.NoSuchElementException;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
@@ -33,12 +33,7 @@ public class ReItrLinkedListTest {
         assertEquals(strs[2], itr.next());
 
         // exception
-        try {
-            itr.next();
-            fail("should throw exception");
-        } catch (NoSuchElementException ignored) {
-
-        }
+        assertThrows(NoSuchElementException.class, () -> itr.next());
     }
 
     @Test

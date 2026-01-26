@@ -1,13 +1,13 @@
 package io.jpower.kcp.netty.internal;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
@@ -34,12 +34,7 @@ public class ReItrHashMapTest {
         assertEquals(entry2.getKey(), itr.next().getKey());
 
         // exception
-        try {
-            itr.next();
-            fail("should throw exception");
-        } catch (NoSuchElementException ignored) {
-
-        }
+        assertThrows(NoSuchElementException.class, () -> itr.next());
     }
 
 }
