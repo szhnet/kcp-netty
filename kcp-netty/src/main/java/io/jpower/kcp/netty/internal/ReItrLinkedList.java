@@ -2,6 +2,7 @@ package io.jpower.kcp.netty.internal;
 
 import java.util.AbstractSequentialList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.ConcurrentModificationException;
 import java.util.Deque;
 import java.util.Iterator;
@@ -15,7 +16,14 @@ import java.util.Queue;
  * @author <a href="mailto:szhnet@gmail.com">szh</a>
  */
 public class ReItrLinkedList<E> extends AbstractSequentialList<E>
-        implements List<E>, Deque<E>, Cloneable, java.io.Serializable {
+        implements Deque<E>, Cloneable, java.io.Serializable {
+
+    @Override
+    public ReItrLinkedList<E> reversed() {
+        ReItrLinkedList<E> result = new ReItrLinkedList<E>(this);
+        Collections.reverse(result);
+        return result;
+    }
 
     transient int size = 0;
 
