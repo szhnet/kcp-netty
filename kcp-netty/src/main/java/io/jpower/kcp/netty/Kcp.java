@@ -84,7 +84,8 @@ public class Kcp {
 
     public static final int IKCP_DEADLINK = 20;
 
-    public static final int IKCP_THRESH_INIT = 2;
+    // https://datatracker.ietf.org/doc/html/rfc5681#page-5 initial value should be arbitrarily high
+    public static final int IKCP_THRESH_INIT = Integer.MAX_VALUE;
 
     public static final int IKCP_THRESH_MIN = 2;
 
@@ -318,6 +319,8 @@ public class Kcp {
     public Kcp(int conv, KcpOutput output) {
         this.conv = conv;
         this.output = output;
+        // up to 10 is more appropriate according to https://datatracker.ietf.org/doc/html/rfc6928
+        this.cwnd = 10;
     }
 
     public void release() {
@@ -1023,7 +1026,7 @@ public class Kcp {
                 xmit++;
                 segment.fastack = 0;
                 if (!nodelay) {
-                    segment.rto += rxRto;
+                    segment.rto += Math.max(segment.rto, rxRto);
                 } else {
                     segment.rto += rxRto / 2;
                 }
@@ -1085,19 +1088,14 @@ public class Kcp {
         // update ssthresh
         if (change > 0) {
             int inflight = (int) (sndNxt - sndUna);
-            ssthresh = inflight / 2;
-            if (ssthresh < IKCP_THRESH_MIN) {
-                ssthresh = IKCP_THRESH_MIN;
-            }
+            ssthresh = Math.max(inflight / 2, IKCP_THRESH_MIN);
             cwnd = ssthresh + resent;
             incr = cwnd * mss;
         }
 
         if (lost) {
-            ssthresh = cwnd0 / 2;
-            if (ssthresh < IKCP_THRESH_MIN) {
-                ssthresh = IKCP_THRESH_MIN;
-            }
+            int inflight = (int) (sndNxt - sndUna);
+            ssthresh = Math.max(inflight / 2, IKCP_THRESH_MIN);
             cwnd = 1;
             incr = mss;
         }
