@@ -19,7 +19,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>8</java.version>
-        <netty.version>4.1.68.Final</netty.version>
+        <netty.version>4.1.133.Final</netty.version>
         <slf4j.version>1.7.30</slf4j.version>
     </properties>
 
